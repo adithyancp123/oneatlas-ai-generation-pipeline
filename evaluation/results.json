@@ -1,0 +1,156 @@
+{
+  "ranAt": "2026-05-29T16:33:20.054Z",
+  "total": 12,
+  "succeeded": 12,
+  "failed": 0,
+  "successRate": 100,
+  "runs": [
+    {
+      "prompt": "Build a CRM for real estate agents to track listings, buyers, and deal pipeline stages.",
+      "promptId": "crm-real-estate",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3062,
+      "tokenCostUsd": 0.017134,
+      "integrationsDetected": []
+    },
+    {
+      "prompt": "Create a task manager that sends Slack notifications when tasks become overdue.",
+      "promptId": "task-slack",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3049,
+      "tokenCostUsd": 0.011893,
+      "integrationsDetected": [
+        "slack"
+      ]
+    },
+    {
+      "prompt": "Design an inventory system that emails managers when stock is low.",
+      "promptId": "inventory-email",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3238,
+      "tokenCostUsd": 0.011595,
+      "integrationsDetected": [
+        "gmail"
+      ]
+    },
+    {
+      "prompt": "Build an HR tool where leave requests trigger Slack approval workflows.",
+      "promptId": "hr-slack-approval",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 2882,
+      "tokenCostUsd": 0.012014,
+      "integrationsDetected": [
+        "slack"
+      ]
+    },
+    {
+      "prompt": "Ecommerce store with Stripe payments and Gmail order confirmations.",
+      "promptId": "ecommerce-stripe-gmail",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3025,
+      "tokenCostUsd": 0.014763,
+      "integrationsDetected": [
+        "stripe",
+        "gmail"
+      ]
+    },
+    {
+      "prompt": "Event platform that sends WhatsApp reminders to attendees before events.",
+      "promptId": "events-whatsapp",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3613,
+      "tokenCostUsd": 0.011816,
+      "integrationsDetected": [
+        "whatsapp-twilio"
+      ]
+    },
+    {
+      "prompt": "Project tracker integrated with Jira issues and Google Sheets exports.",
+      "promptId": "project-jira-sheets",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3017,
+      "tokenCostUsd": 0.011684,
+      "integrationsDetected": [
+        "jira"
+      ]
+    },
+    {
+      "prompt": "An app.",
+      "promptId": "vague-an-app",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3182,
+      "tokenCostUsd": 0.011324,
+      "integrationsDetected": []
+    },
+    {
+      "prompt": "Build something like Notion for doctors.",
+      "promptId": "notion-doctors",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3003,
+      "tokenCostUsd": 0.01114,
+      "integrationsDetected": []
+    },
+    {
+      "prompt": "A marketplace with auctions, crypto payments, AI recommendations, social feed, and vendor dashboards.",
+      "promptId": "overscoped-marketplace",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3287,
+      "tokenCostUsd": 0.012523,
+      "integrationsDetected": [
+        "stripe"
+      ]
+    },
+    {
+      "prompt": "CRM + project management + invoicing in one tool with conflicting admin roles.",
+      "promptId": "crm-pm-invoice-conflict",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 2873,
+      "tokenCostUsd": 0.0167,
+      "integrationsDetected": []
+    },
+    {
+      "prompt": "Smart task manager that learns user habits.",
+      "promptId": "smart-task-manager",
+      "success": true,
+      "failedStage": null,
+      "repairStrategy": null,
+      "retryCount": 0,
+      "latencyMs": 3115,
+      "tokenCostUsd": 0.011031,
+      "integrationsDetected": []
+    }
+  ]
+}
