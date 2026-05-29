@@ -14,6 +14,7 @@ import type {
   TokenUsage,
 } from "@/lib/ai/gateway/types";
 import { ProviderRequestError } from "@/lib/ai/gateway/types";
+import { getApiKeyValue } from "@/config/env";
 import { logger } from "@/lib/logging";
 import type { SDKCallResult } from "@/lib/ai/providers/sdk-types";
 
@@ -42,12 +43,11 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
   ) {}
 
   isConfigured(): boolean {
-    const key = process.env[this.envConfig.apiKeyEnv];
-    return Boolean(key && key.length > 0);
+    return getApiKeyValue(this.envConfig.apiKeyEnv) !== undefined;
   }
 
   protected getApiKey(): string {
-    return process.env[this.envConfig.apiKeyEnv] ?? "";
+    return getApiKeyValue(this.envConfig.apiKeyEnv) ?? "";
   }
 
   protected resolveModel(input: AIGenerateInput): string {
@@ -55,6 +55,31 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     if (input.model && input.model.length > 0) return input.model;
     if (fromEnv && fromEnv.length > 0) return fromEnv;
     return this.envConfig.fallbackModel;
+  }
+
+  private logInvocation(model: string, configured: boolean, input: AIGenerateInput): void {
+    logger.debug("Provider selected", {
+      provider: this.id,
+      model,
+      mode: configured ? "real" : "mock",
+      ...(input.stageId !== undefined ? { stageId: input.stageId } : {}),
+    });
+  }
+
+  private logResponse(model: string, response: AIGatewayResponse<string>): void {
+    logger.info("Provider completed", {
+      provider: this.id,
+      model,
+      mode: response.mock ? "mock" : "real",
+      ...(response.metadata?.stageId !== undefined
+        ? { stageId: response.metadata.stageId }
+        : {}),
+      latencyMs: response.latencyMs,
+      promptTokens: response.usage.promptTokens,
+      completionTokens: response.usage.completionTokens,
+      totalTokens: response.usage.totalTokens,
+      estimatedCostUsd: response.estimatedCostUsd,
+    });
   }
 
   protected abstract invokeSDK(
@@ -75,10 +100,13 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
   async generateText(input: AIGenerateInput): Promise<AIGatewayResponse<string>> {
     const start = Date.now();
     const model = this.resolveModel(input);
+    const configured = this.isConfigured();
 
-    if (!this.isConfigured()) {
+    this.logInvocation(model, configured, input);
+
+    if (!configured) {
       const usage = estimateMockUsage(input.prompt);
-      return {
+      const response: AIGatewayResponse<string> = {
         data: this.buildMockText(input),
         provider: this.id,
         model,
@@ -88,18 +116,23 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
         mock: true,
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
       };
+      this.logResponse(model, response);
+      return response;
     }
 
     try {
       const result = await this.invokeSDK(input, model);
-      return this.buildResponse(input, model, result, start, false);
+      const response = this.buildResponse(input, model, result, start, false);
+      this.logResponse(model, response);
+      return response;
     } catch (error) {
       logger.warn("SDK call failed — falling back to deterministic mock", {
         provider: this.id,
+        model,
         error: error instanceof Error ? error.message : "unknown",
       });
       const usage = estimateMockUsage(input.prompt);
-      return {
+      const response: AIGatewayResponse<string> = {
         data: this.buildMockText(input),
         provider: this.id,
         model,
@@ -109,6 +142,8 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
         mock: true,
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
       };
+      this.logResponse(model, response);
+      return response;
     }
   }
 

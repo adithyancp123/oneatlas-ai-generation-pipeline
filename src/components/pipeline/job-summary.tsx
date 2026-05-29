@@ -2,6 +2,7 @@
 
 import { usePipeline } from "@/hooks";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui";
+import { cn } from "@/lib/utils";
 
 export function JobSummary() {
   const { jobId, status, latencies, repairLog, validationErrors } = usePipeline();
@@ -16,27 +17,42 @@ export function JobSummary() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Job summary</CardTitle>
-        <CardDescription className="font-mono text-xs">{jobId}</CardDescription>
+        <CardTitle>Job summary</CardTitle>
+        <CardDescription className="font-mono text-[11px] leading-relaxed break-all">
+          {jobId}
+        </CardDescription>
       </CardHeader>
-      <dl className="grid grid-cols-2 gap-3 text-sm">
-        <div>
-          <dt className="text-foreground/60">Status</dt>
-          <dd className="capitalize">{status ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-foreground/60">Duration</dt>
-          <dd>{totalMs > 0 ? `${totalMs}ms` : "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-foreground/60">Repair attempts</dt>
-          <dd>{repairCount}</dd>
-        </div>
-        <div>
-          <dt className="text-foreground/60">Validation issues</dt>
-          <dd>{validationErrors.length}</dd>
-        </div>
+      <dl className="stat-grid">
+        <SummaryItem label="Status" value={status ?? "—"} capitalize />
+        <SummaryItem label="Duration" value={totalMs > 0 ? `${totalMs}ms` : "—"} />
+        <SummaryItem label="Repairs" value={String(repairCount)} />
+        <SummaryItem
+          label="Validation"
+          value={String(validationErrors.length)}
+          highlight={validationErrors.length > 0}
+        />
       </dl>
     </Card>
+  );
+}
+
+function SummaryItem({
+  label,
+  value,
+  capitalize = false,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  capitalize?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="stat-card">
+      <dt className="stat-label">{label}</dt>
+      <dd className={cn("stat-value", capitalize && "capitalize", highlight && "text-amber-300")}>
+        {value}
+      </dd>
+    </div>
   );
 }

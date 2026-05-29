@@ -14,7 +14,7 @@ export function PromptInput({ className, disabled }: PromptInputProps) {
   const atLimit = prompt.length >= MAX_PROMPT_LENGTH;
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-3", className)}>
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value.slice(0, MAX_PROMPT_LENGTH))}
@@ -22,13 +22,21 @@ export function PromptInput({ className, disabled }: PromptInputProps) {
         placeholder="Example: CRM for real estate with Slack notifications and Stripe billing"
         rows={6}
         className={cn(
-          "w-full resize-y rounded-lg border border-foreground/15 bg-transparent px-4 py-3 text-sm leading-relaxed outline-none focus:border-foreground/40",
-          atLimit && "border-amber-500/40",
+          "input-base min-h-[148px] resize-y",
+          atLimit && "border-amber-500/45 focus:border-amber-500/45 focus:ring-amber-500/15",
         )}
       />
-      <p className={cn("text-xs text-foreground/50", atLimit && "text-amber-700 dark:text-amber-300")}>
-        {prompt.length.toLocaleString()} / {MAX_PROMPT_LENGTH.toLocaleString()} characters
-      </p>
+      <div className="flex items-center justify-between gap-4 text-xs">
+        <span className="text-zinc-500">Plain-text prompt</span>
+        <span
+          className={cn(
+            "shrink-0 tabular-nums text-zinc-500 transition-colors duration-200",
+            atLimit && "font-medium text-amber-400",
+          )}
+        >
+          {prompt.length.toLocaleString()} / {MAX_PROMPT_LENGTH.toLocaleString()}
+        </span>
+      </div>
     </div>
   );
 }

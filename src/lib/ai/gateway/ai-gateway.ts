@@ -81,6 +81,14 @@ export class AIGateway {
     const primaryRoute = resolveRoute(stageId);
     const fallbackRoute = resolveFallbackRoute(stageId);
 
+    logger.debug("Stage routing", {
+      stageId,
+      primary: primaryRoute.provider,
+      primaryModel: primaryRoute.model || "(adapter default)",
+      fallback: fallbackRoute.provider,
+      fallbackModel: fallbackRoute.model || "(adapter default)",
+    });
+
     const attempts: Array<{ provider: ProviderId; model: string }> = [
       { provider: resolveProviderId(primaryRoute.provider), model: primaryRoute.model },
       { provider: resolveProviderId(fallbackRoute.provider), model: fallbackRoute.model },
@@ -169,6 +177,13 @@ export class AIGateway {
     input: AIGenerateInput,
   ): Promise<AIGatewayResponse<string>> {
     const adapter = getProviderAdapter(providerId);
+
+    logger.debug("Gateway invoke", {
+      ...(input.stageId !== undefined ? { stageId: input.stageId } : {}),
+      provider: providerId,
+      model: input.model || "(adapter default)",
+    });
+
     return adapter.generateText({
       ...input,
       provider: providerId,

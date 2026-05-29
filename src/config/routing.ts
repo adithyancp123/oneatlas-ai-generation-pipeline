@@ -25,20 +25,26 @@ export interface StageRoutingEntry {
 /**
  * Single source of truth for per-stage model routing.
  * Stages must never embed model names — they resolve via this config + env.
+ *
+ * Primary providers (internship compliance):
+ * - intentExtraction → Groq (fast/cheap)
+ * - schemaGeneration → Gemini (structured generation)
+ * - appSpecGeneration → OpenAI (quality)
+ * - repair → OpenAI with Groq fallback
  */
 export const STAGE_ROUTING_CONFIG: readonly StageRoutingEntry[] = [
   {
     stageId: "intentExtraction",
-    primary: { provider: "openai", modelEnvKey: "OPENAI_DEFAULT_MODEL" },
-    fallback: { provider: "anthropic", modelEnvKey: "ANTHROPIC_DEFAULT_MODEL" },
-    strategy: "primary-first",
+    primary: { provider: "groq", modelEnvKey: "GROQ_DEFAULT_MODEL" },
+    fallback: { provider: "openai", modelEnvKey: "OPENAI_DEFAULT_MODEL" },
+    strategy: "latency-optimized",
     costThresholdUsd: 0.05,
     latencyThresholdMs: 8_000,
     overrideEnvKey: "INTENT_EXTRACTION_MODEL_OVERRIDE",
   },
   {
     stageId: "schemaGeneration",
-    primary: { provider: "anthropic", modelEnvKey: "ANTHROPIC_DEFAULT_MODEL" },
+    primary: { provider: "gemini", modelEnvKey: "GEMINI_DEFAULT_MODEL" },
     fallback: { provider: "openai", modelEnvKey: "OPENAI_DEFAULT_MODEL" },
     strategy: "cost-optimized",
     costThresholdUsd: 0.1,
@@ -48,8 +54,8 @@ export const STAGE_ROUTING_CONFIG: readonly StageRoutingEntry[] = [
   {
     stageId: "appSpecGeneration",
     primary: { provider: "openai", modelEnvKey: "OPENAI_DEFAULT_MODEL" },
-    fallback: { provider: "openrouter", modelEnvKey: "OPENROUTER_DEFAULT_MODEL" },
-    strategy: "latency-optimized",
+    fallback: { provider: "groq", modelEnvKey: "GROQ_DEFAULT_MODEL" },
+    strategy: "primary-first",
     costThresholdUsd: 0.2,
     latencyThresholdMs: 20_000,
     overrideEnvKey: "APP_SPEC_GENERATION_MODEL_OVERRIDE",

@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-05-29T16:33:20.054Z",
+  "ranAt": "2026-05-29T18:36:19.994Z",
   "total": 12,
   "succeeded": 12,
   "failed": 0,
@@ -12,8 +12,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3062,
-      "tokenCostUsd": 0.017134,
+      "latencyMs": 1933,
+      "tokenCostUsd": 0.01161,
       "integrationsDetected": []
     },
     {
@@ -23,8 +23,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3049,
-      "tokenCostUsd": 0.011893,
+      "latencyMs": 1748,
+      "tokenCostUsd": 0.00737,
       "integrationsDetected": [
         "slack"
       ]
@@ -36,8 +36,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3238,
-      "tokenCostUsd": 0.011595,
+      "latencyMs": 1586,
+      "tokenCostUsd": 0.007224,
       "integrationsDetected": [
         "gmail"
       ]
@@ -49,8 +49,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 2882,
-      "tokenCostUsd": 0.012014,
+      "latencyMs": 1734,
+      "tokenCostUsd": 0.007382,
       "integrationsDetected": [
         "slack"
       ]
@@ -62,8 +62,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3025,
-      "tokenCostUsd": 0.014763,
+      "latencyMs": 1682,
+      "tokenCostUsd": 0.009935,
       "integrationsDetected": [
         "stripe",
         "gmail"
@@ -76,8 +76,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3613,
-      "tokenCostUsd": 0.011816,
+      "latencyMs": 1483,
+      "tokenCostUsd": 0.007314,
       "integrationsDetected": [
         "whatsapp-twilio"
       ]
@@ -89,8 +89,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3017,
-      "tokenCostUsd": 0.011684,
+      "latencyMs": 1740,
+      "tokenCostUsd": 0.007269,
       "integrationsDetected": [
         "jira"
       ]
@@ -102,8 +102,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3182,
-      "tokenCostUsd": 0.011324,
+      "latencyMs": 1759,
+      "tokenCostUsd": 0.006909,
       "integrationsDetected": []
     },
     {
@@ -113,8 +113,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3003,
-      "tokenCostUsd": 0.01114,
+      "latencyMs": 1834,
+      "tokenCostUsd": 0.006964,
       "integrationsDetected": []
     },
     {
@@ -124,8 +124,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3287,
-      "tokenCostUsd": 0.012523,
+      "latencyMs": 1960,
+      "tokenCostUsd": 0.007673,
       "integrationsDetected": [
         "stripe"
       ]
@@ -137,8 +137,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 2873,
-      "tokenCostUsd": 0.0167,
+      "latencyMs": 1794,
+      "tokenCostUsd": 0.011459,
       "integrationsDetected": []
     },
     {
@@ -148,8 +148,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 3115,
-      "tokenCostUsd": 0.011031,
+      "latencyMs": 1730,
+      "tokenCostUsd": 0.006942,
       "integrationsDetected": []
     }
   ]

@@ -3,6 +3,7 @@ export const APP_NAME = "AppSpec Pipeline";
 export const API_ROUTES = {
   generate: "/api/generate",
   integrations: "/api/integrations",
+  providers: "/api/providers",
   job: (jobId: string) => `/api/generate/${jobId}`,
   jobStream: (jobId: string) => `/api/generate/${jobId}/stream`,
   jobRepair: (jobId: string) => `/api/generate/${jobId}/repair`,

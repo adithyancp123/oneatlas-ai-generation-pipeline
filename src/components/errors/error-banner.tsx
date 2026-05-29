@@ -17,23 +17,28 @@ export function ErrorBanner({ className }: ErrorBannerProps) {
       {error ? (
         <div
           role="alert"
-          className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300"
+          className="status-banner border-red-500/30 bg-red-500/[0.08] text-red-200"
         >
           {error}
         </div>
       ) : null}
 
       {validationErrors.length > 0 ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-          <p className="font-medium text-amber-800 dark:text-amber-200">
+        <div className="status-banner border-amber-500/30 bg-amber-500/[0.06] text-amber-100">
+          <p className="font-medium text-amber-200">
             Validation issues ({validationErrors.length})
           </p>
-          <ul className="mt-2 max-h-40 space-y-2 overflow-y-auto text-xs leading-relaxed text-amber-950/90 dark:text-amber-50/90">
+          <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto pr-1">
             {validationErrors.map((err) => (
-              <li key={`${err.path}-${err.code}`} className="border-b border-amber-500/10 pb-2 last:border-0">
-                <span className="font-mono text-[11px]">{err.code}</span>
-                <span className="text-foreground/60"> @ {err.path || "root"}</span>
-                <p className="mt-0.5">{err.message}</p>
+              <li
+                key={`${err.path}-${err.code}`}
+                className="rounded-lg border border-amber-500/20 bg-zinc-950/40 px-3 py-2.5 text-xs"
+              >
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="font-mono text-[11px] font-medium text-amber-300">{err.code}</span>
+                  <span className="text-zinc-500">@ {err.path || "root"}</span>
+                </div>
+                <p className="mt-1.5 leading-relaxed text-zinc-300">{err.message}</p>
               </li>
             ))}
           </ul>
@@ -41,12 +46,13 @@ export function ErrorBanner({ className }: ErrorBannerProps) {
       ) : null}
 
       {repairLog && repairLog.entries.length > 0 ? (
-        <div className="rounded-lg border border-foreground/15 px-4 py-3 text-sm">
-          <p className="font-medium">Repair attempts ({repairLog.entries.length})</p>
-          <ul className="mt-2 space-y-1 text-foreground/70">
+        <div className="status-banner border-zinc-800/80 bg-zinc-900/30 text-zinc-300">
+          <p className="font-medium text-zinc-200">Repair attempts ({repairLog.entries.length})</p>
+          <ul className="mt-2.5 space-y-1.5 font-mono text-xs text-zinc-400">
             {repairLog.entries.map((entry) => (
               <li key={`${entry.attempt}-${entry.strategy}`}>
-                #{entry.attempt} {entry.strategy} → {entry.outcome} ({entry.latencyMs}ms)
+                #{entry.attempt} {entry.strategy} → {entry.outcome}{" "}
+                <span className="text-zinc-500">({entry.latencyMs}ms)</span>
               </li>
             ))}
           </ul>

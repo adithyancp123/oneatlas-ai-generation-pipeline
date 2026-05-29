@@ -38,6 +38,7 @@ Use this before opening the PR or sharing the repo link.
 ## Demo readiness
 
 - [ ] Add PNGs to `docs/screenshots/` (see `docs/screenshots/README.md`)
+  - `home-dashboard.png`, `generation-flow.png`, `pipeline.png`, `providers.png`, `appspec-output.png`
 - [ ] Update README screenshot table with real images
 - [ ] Replace `YOUR_USERNAME/YOUR_REPO` in README Vercel button URL
 - [ ] (Optional) Vercel preview URL in README or PR description
@@ -56,4 +57,4 @@ npm run dev
 
 ---
 
-**Last verified:** 2026-05-29 — lint, build, evaluate all passing.
+**Last verified:** 2026-05-29 — lint ✅, build ✅, evaluate **12/12** ✅.

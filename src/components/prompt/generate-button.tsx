@@ -11,10 +11,12 @@ export function GenerateButton() {
   return (
     <Button
       type="button"
+      variant="primary"
+      loading={isGenerating}
       disabled={isGenerating || prompt.trim().length === 0}
       onClick={() => void generate()}
     >
-      {isGenerating ? "Generating…" : "Generate"}
+      {isGenerating ? undefined : "Generate AppSpec"}
     </Button>
   );
 }

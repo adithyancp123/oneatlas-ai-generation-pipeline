@@ -1,6 +1,6 @@
 import { API_ROUTES } from "@/config/constants";
-import type { AppSpec } from "@/types/domain";
-import type { GenerationJob } from "@/types/job";
+import type { ProvidersOverview } from "@/lib/ai/providers/status";
+import type { AppSpec } from "@/types/domain";import type { GenerationJob } from "@/types/job";
 import type { IntegrationDefinition } from "@/types/integrations";
 import type { GenerateResponse } from "@/types/pipeline";
 import type { PipelineSSEEvent } from "@/types/sse";
@@ -38,6 +38,13 @@ export async function fetchIntegrations(): Promise<IntegrationDefinition[]> {
   return body.integrations;
 }
 
+export async function fetchProvidersOverview(): Promise<ProvidersOverview> {
+  const response = await fetch(API_ROUTES.providers);
+  if (!response.ok) {
+    throw new Error("Failed to fetch providers");
+  }
+  return response.json() as Promise<ProvidersOverview>;
+}
 export async function triggerRepair(jobId: string): Promise<GenerationJob> {
   const response = await fetch(API_ROUTES.jobRepair(jobId), { method: "POST" });
   if (!response.ok) {

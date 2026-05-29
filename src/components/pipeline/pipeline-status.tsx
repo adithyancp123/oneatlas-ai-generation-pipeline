@@ -29,12 +29,33 @@ function getStageState(
   return "pending";
 }
 
+const stageClass: Record<StageState, string> = {
+  pending: "pipeline-stage-pending",
+  running: "pipeline-stage-running",
+  complete: "pipeline-stage-complete",
+  failed: "pipeline-stage-failed",
+};
+
+const dotClass: Record<StageState, string> = {
+  pending: "pipeline-dot-pending",
+  running: "pipeline-dot-running",
+  complete: "pipeline-dot-complete",
+  failed: "pipeline-dot-failed",
+};
+
+const statusClass: Record<StageState, string> = {
+  pending: "pipeline-status-pending",
+  running: "pipeline-status-running",
+  complete: "pipeline-status-complete",
+  failed: "pipeline-status-failed",
+};
+
 export function PipelineStatus() {
   const { status, currentStage, latencies, validationErrors } = usePipeline();
 
   return (
-    <ol className="space-y-2">
-      {PIPELINE_STAGE_ORDER.map((stageId) => {
+    <ol className="pipeline-list">
+      {PIPELINE_STAGE_ORDER.map((stageId, index) => {
         const state = getStageState(
           stageId,
           currentStage,
@@ -43,9 +64,11 @@ export function PipelineStatus() {
           validationErrors.length > 0,
         );
         const latency = latencies.find((l) => l.stageId === stageId);
+        const isLast = index === PIPELINE_STAGE_ORDER.length - 1;
 
         return (
-          <li key={stageId}>
+          <li key={stageId} className="relative">
+            {!isLast ? <span className="pipeline-connector" aria-hidden /> : null}
             <StageCard
               label={STAGE_LABELS[stageId]}
               state={state}
@@ -66,31 +89,19 @@ interface StageCardProps {
 
 function StageCard({ label, state, latencyMs }: StageCardProps) {
   return (
-    <div
-      className={cn(
-        "flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm",
-        state === "running" && "border-amber-500/40 bg-amber-500/5",
-        state === "complete" && "border-green-500/30 bg-green-500/5",
-        state === "failed" && "border-red-500/30 bg-red-500/5",
-        state === "pending" && "border-foreground/10",
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <span
-          className={cn(
-            "h-2 w-2 shrink-0 rounded-full",
-            state === "running" && "bg-amber-500",
-            state === "complete" && "bg-green-500",
-            state === "failed" && "bg-red-500",
-            state === "pending" && "bg-foreground/20",
-          )}
-        />
-        <span>{label}</span>
+    <div className={cn("pipeline-stage", stageClass[state])}>
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="pipeline-node">
+          <span className={dotClass[state]} />
+        </span>
+        <span className="truncate text-sm font-medium text-zinc-100">{label}</span>
       </div>
-      <span className="text-xs text-foreground/50 capitalize">
-        {state}
-        {latencyMs !== undefined ? ` · ${latencyMs}ms` : ""}
-      </span>
+      <div className="pipeline-meta">
+        {latencyMs !== undefined ? (
+          <span className="font-mono text-zinc-500">{latencyMs}ms</span>
+        ) : null}
+        <span className={statusClass[state]}>{state}</span>
+      </div>
     </div>
   );
 }

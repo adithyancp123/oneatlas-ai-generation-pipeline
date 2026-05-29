@@ -1,26 +1,35 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function Card({
+  className,
+  interactive = true,
+  ...props
+}: HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
   return (
     <div
-      className={cn(
-        "rounded-xl border border-foreground/10 bg-background p-6 shadow-sm",
-        className,
-      )}
+      className={cn("card-base", interactive && "card-interactive", className)}
       {...props}
     />
   );
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mb-4 space-y-1", className)} {...props} />;
+  return <div className={cn("card-header", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn("text-lg font-semibold tracking-tight", className)} {...props} />;
+  return <h3 className={cn("card-title", className)} {...props} />;
 }
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("text-sm text-foreground/60", className)} {...props} />;
+  return <p className={cn("card-description", className)} {...props} />;
+}
+
+export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("", className)} {...props} />;
+}
+
+export function CardFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("card-footer", className)} {...props} />;
 }

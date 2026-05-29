@@ -4,7 +4,7 @@ import type { ProviderCapabilities, AIGenerateInput } from "@/lib/ai/gateway/typ
 import type { SDKCallResult } from "@/lib/ai/providers/sdk-types";
 import { buildSdkCallOptions } from "@/lib/ai/providers/sdk-helpers";
 import { buildStructuredSystemPrompt } from "@/lib/ai/structured/parse-structured";
-import { getEnvValue } from "@/config/env";
+import { getGeminiApiKeyValue } from "@/config/env";
 
 const envConfig: ProviderEnvConfig = {
   apiKeyEnv: "GEMINI_API_KEY",
@@ -28,14 +28,11 @@ class GeminiAdapter extends BaseProviderAdapter {
   }
 
   override isConfigured(): boolean {
-    return (
-      Boolean(getEnvValue("GEMINI_API_KEY")) ||
-      Boolean(getEnvValue("GOOGLE_AI_API_KEY"))
-    );
+    return getGeminiApiKeyValue() !== undefined;
   }
 
   protected override getApiKey(): string {
-    return getEnvValue("GEMINI_API_KEY") ?? getEnvValue("GOOGLE_AI_API_KEY") ?? "";
+    return getGeminiApiKeyValue() ?? "";
   }
 
   protected invokeSDK(
