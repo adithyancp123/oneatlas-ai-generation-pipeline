@@ -1,3 +1,4 @@
+import { normalizeAppIntentInput } from "@/lib/pipeline/intent/normalize-intent";
 import { APP_TYPE_VALUES } from "@/lib/pipeline/intent/app-type-detection";
 import { z } from "zod";
 
@@ -8,19 +9,22 @@ export const extractedEntitySchema = z.object({
   description: z.string(),
 });
 
-export const appIntentSchema = z.object({
-  appName: z.string().min(1),
-  appType: appTypeSchema,
-  summary: z.string().min(1),
-  goals: z.array(z.string().min(1)).min(1),
-  actors: z.array(z.string().min(1)),
-  constraints: z.array(z.string()),
-  entities: z.array(extractedEntitySchema).min(1),
-  integrationsRequested: z.array(z.string()),
-  assumptions: z.array(z.string()),
+const appIntentObjectSchema = z.object({
+  appName: z.string().min(1).default("Generated Application"),
+  appType: appTypeSchema.default("custom"),
+  summary: z.string().default(""),
+  goals: z.array(z.string()).default([]),
+  actors: z.array(z.string()).default([]),
+  constraints: z.array(z.string()).default([]),
+  entities: z
+    .array(extractedEntitySchema)
+    .min(1)
+    .default([{ name: "User", description: "Primary application user" }]),
+  integrationsRequested: z.array(z.string()).default([]),
+  assumptions: z.array(z.string()).default([]),
   warnings: z.array(z.string()).default([]),
-  features: z.array(z.string().min(1)).min(1),
-  clarificationRequired: z.literal(false),
+  features: z.array(z.string().min(1)).min(1).default(["Core functionality"]),
+  clarificationRequired: z.literal(false).default(false),
   confidence: z.number().min(0).max(1).optional(),
   ambiguityLevel: z.enum(["low", "medium", "high"]).optional(),
   clarificationReason: z.string().min(1).optional(),
@@ -38,6 +42,12 @@ export const appIntentSchema = z.object({
     )
     .optional(),
 });
+
+/** Normalizes heterogeneous LLM output, then applies defaults (gateway + validation). */
+export const appIntentSchema = z.preprocess(
+  (value) => normalizeAppIntentInput(value),
+  appIntentObjectSchema,
+);
 
 export const fieldSchema = z.object({
   name: z.string().min(1),

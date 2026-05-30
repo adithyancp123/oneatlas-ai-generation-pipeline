@@ -3,6 +3,7 @@ import {
   buildIntentExtractionPrompt,
   correctIntentAppType,
 } from "@/lib/pipeline/intent/app-type-detection";
+import { normalizeAppIntentInput } from "@/lib/pipeline/intent/normalize-intent";
 import { buildMockIntent } from "@/lib/pipeline/mocks";
 import { stageProviderExecutionFromGateway } from "@/lib/pipeline/stages/stage-execution";
 import { enrichIntentWithPromptInsights } from "@/lib/pipeline/prompt-insights";
@@ -32,10 +33,10 @@ export const intentExtractionStage: PipelineStage<string, AppIntent> = {
       prompt,
       gatewayResponse.mock
         ? buildMockIntent(prompt)
-        : enrichIntentWithPromptInsights(prompt, {
-            ...(gatewayResponse.data as AppIntent),
-            warnings: (gatewayResponse.data as AppIntent).warnings ?? [],
-          }),
+        : enrichIntentWithPromptInsights(
+            prompt,
+            appIntentSchema.parse(normalizeAppIntentInput(gatewayResponse.data, { prompt })),
+          ),
     );
 
     const validation = validateIntentOutput(output);
