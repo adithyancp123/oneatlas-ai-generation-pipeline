@@ -1,6 +1,10 @@
 import { getJobStore } from "@/lib/runtime/singleton";
 import { jsonError, jsonSuccess } from "@/lib/utils";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 interface RouteContext {
   params: Promise<{ jobId: string }>;
 }

@@ -37,6 +37,7 @@ export class PipelineOrchestrator {
           {
             code: "ORCHESTRATOR_ERROR",
             message: error instanceof Error ? error.message : "Pipeline failed",
+            field: "orchestrator",
             path: "orchestrator",
           },
         ],
@@ -164,6 +165,7 @@ export class PipelineOrchestrator {
         allErrors.push({
           code: "STAGE_EXECUTION_ERROR",
           message,
+          field: stageId,
           path: stageId,
           stageId,
         });

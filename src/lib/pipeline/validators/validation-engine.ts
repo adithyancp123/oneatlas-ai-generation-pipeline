@@ -6,7 +6,6 @@ import {
   buildEntityRefSets,
   entityRefExists,
   pageHasMatchingEndpoint,
-  resolveEntityByRef,
 } from "@/lib/pipeline/validators/entity-refs";
 import {
   appIntentSchema,
@@ -48,6 +47,7 @@ function mapZodIssuesToErrors(
     return {
       code: issue.code,
       message: issue.message,
+      field: path,
       path,
       stageId,
     };
@@ -189,10 +189,10 @@ export function validateDataSchemaSemantics(
 function err(
   code: string,
   message: string,
-  path: string,
+  field: string,
   stageId: PipelineStageId,
 ): ValidationError {
-  return { code, message, path, stageId };
+  return { code, message, field, path: field, stageId };
 }
 
 export function validateIntent(output: unknown): ValidationEngineResult {
@@ -302,31 +302,23 @@ export function validateAppSpec(
       }
     }
 
-    const hasEndpoint =
-      page.route === "/dashboard" ||
-      pageHasMatchingEndpoint(page.entities, spec.apiEndpoints, entityNameToTable);
-
-    if (!hasEndpoint) {
+    if (page.entities.length === 0) {
       errors.push(
         err(
-          "page_without_endpoint",
-          `Page ${page.route} has no matching API endpoint`,
-          `pages.${page.id}`,
+          "page_missing_entities",
+          `Page ${page.name} must reference at least one DataSchema entity`,
+          `pages.${page.id}.entities`,
           "appSpecGeneration",
         ),
       );
-    } else if (
-      page.route !== "/dashboard" &&
-      page.entities.length > 0 &&
-      spec.apiEndpoints.some((ep) => ep.boundEntity) &&
-      !page.entities.some((entityName) =>
-        spec.apiEndpoints.some((ep) => ep.boundEntity === entityName),
-      )
-    ) {
+      continue;
+    }
+
+    if (!pageHasMatchingEndpoint(page.entities, spec.apiEndpoints, entityNameToTable)) {
       errors.push(
         err(
-          "page_api_bound_mismatch",
-          `Page ${page.route} has no api.boundEntity for its entities`,
+          "page_without_endpoint",
+          `Page ${page.route} has no API endpoint for any of its entities (${page.entities.join(", ")})`,
           `pages.${page.id}`,
           "appSpecGeneration",
         ),
@@ -412,13 +404,13 @@ export function validateAppSpec(
       );
     }
 
-    if (wf.triggerMeta?.entity && !entityNames.has(wf.triggerMeta.entity)) {
-      const resolved = resolveEntityByRef(wf.triggerMeta.entity, spec.dataSchema.entities);
-      if (!resolved) {
+    if (wf.triggerMeta?.entity) {
+      const { names, tables } = buildEntityRefSets(spec.dataSchema);
+      if (!entityRefExists(wf.triggerMeta.entity, names, tables)) {
         errors.push(
           err(
-            "workflow_invalid_trigger_entity",
-            `Workflow triggerMeta.entity ${wf.triggerMeta.entity} unknown`,
+            "workflow_invalid_entity",
+            `Workflow references unknown DataSchema entity "${wf.triggerMeta.entity}"`,
             `workflows.${wf.id}.triggerMeta.entity`,
             "appSpecGeneration",
           ),
@@ -501,13 +493,13 @@ export function validateAppSpec(
   }
 
   if (spec.auth.permissions) {
-    for (const perm of spec.auth.permissions) {
+    for (const [index, perm] of spec.auth.permissions.entries()) {
       if (!entityNames.has(perm.entity)) {
         errors.push(
           err(
             "auth_permission_unknown_entity",
             `Permission references unknown entity ${perm.entity}`,
-            `auth.permissions.${perm.entity}`,
+            `auth.permissions.${index}.entity`,
             "appSpecGeneration",
           ),
         );
@@ -516,8 +508,8 @@ export function validateAppSpec(
         errors.push(
           err(
             "auth_permission_unknown_role",
-            `Permission references unknown role ${perm.role}`,
-            `auth.permissions.${perm.role}`,
+            `Permission role "${perm.role}" is not defined in auth.roles`,
+            `auth.permissions.${index}.role`,
             "appSpecGeneration",
           ),
         );
@@ -563,5 +555,8 @@ export function validateFullPipeline(
 
   return { valid: allErrors.length === 0, errors: allErrors };
 }
+
+/** Alias for assignment/reviewer naming. */
+export const validateAppIntent = validateIntent;
 
 export type { DataSchema };

@@ -22,16 +22,26 @@ export function resolveEntityByRef(
   return entities.find((e) => e.name === ref || e.tableName === ref);
 }
 
+/** True when an endpoint is bound to the same entity (boundEntity or path/table match). */
+export function endpointMatchesEntity(
+  entityName: string,
+  apiEndpoints: Pick<ApiEndpoint, "path" | "boundEntity">[],
+  entityTables: Map<string, string>,
+): boolean {
+  const table = entityTables.get(entityName);
+  if (apiEndpoints.some((ep) => ep.boundEntity === entityName)) return true;
+  if (table && apiEndpoints.some((ep) => ep.path.includes(table))) return true;
+  return false;
+}
+
+/** Page must list at least one entity and have ≥1 API endpoint for a listed entity. */
 export function pageHasMatchingEndpoint(
   pageEntityNames: string[],
   apiEndpoints: Pick<ApiEndpoint, "path" | "boundEntity">[],
   entityTables: Map<string, string>,
 ): boolean {
-  for (const entityName of pageEntityNames) {
-    const table = entityTables.get(entityName);
-    const boundMatch = apiEndpoints.some((ep) => ep.boundEntity === entityName);
-    if (boundMatch) return true;
-    if (table && apiEndpoints.some((ep) => ep.path.includes(table))) return true;
-  }
-  return false;
+  if (pageEntityNames.length === 0) return false;
+  return pageEntityNames.some((entityName) =>
+    endpointMatchesEntity(entityName, apiEndpoints, entityTables),
+  );
 }

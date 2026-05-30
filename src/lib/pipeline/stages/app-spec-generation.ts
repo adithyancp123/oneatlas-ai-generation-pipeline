@@ -33,7 +33,9 @@ export const appSpecGenerationStage: PipelineStage<AppSpecGenerationInput, AppSp
           },
         } as AppSpec);
 
-    const validation = validateAppSpecOutput(output);
+    const validation = validateAppSpecOutput(output, {
+      canonicalDataSchema: input.dataSchema,
+    });
 
     return {
       stageId: "appSpecGeneration",

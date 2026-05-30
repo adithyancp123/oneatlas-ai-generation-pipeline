@@ -1,0 +1,157 @@
+{
+  "ranAt": "2026-05-30T10:34:10.244Z",
+  "baseUrl": "http://localhost:3000",
+  "total": 12,
+  "succeeded": 12,
+  "failed": 0,
+  "successRate": 100,
+  "avgLatencyMs": 3262,
+  "mostCommonFailureStage": null,
+  "runs": [
+    {
+      "prompt": "Build a CRM for a real estate agency. Agents manage leads, properties, and deals. Admin sees analytics. WhatsApp notifications when a deal closes.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3486,
+      "estimatedTokenCost": "$0.0122",
+      "integrationsDetected": [],
+      "repairLog": []
+    },
+    {
+      "prompt": "Task manager for an engineering team. Tasks have due dates, assignees, priorities, and status. Team lead gets a Slack message when a task is overdue.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3027,
+      "estimatedTokenCost": "$0.0124",
+      "integrationsDetected": [
+        "slack"
+      ],
+      "repairLog": []
+    },
+    {
+      "prompt": "Inventory system for a warehouse. Products, stock movements, suppliers. Low stock triggers an email alert.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3684,
+      "estimatedTokenCost": "$0.0082",
+      "integrationsDetected": [
+        "gmail"
+      ],
+      "repairLog": []
+    },
+    {
+      "prompt": "HR tool for a 50-person company. Track employees, leave requests, and performance reviews. Notify manager on Slack when leave is approved.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 2869,
+      "estimatedTokenCost": "$0.0085",
+      "integrationsDetected": [
+        "slack"
+      ],
+      "repairLog": []
+    },
+    {
+      "prompt": "E-commerce backend. Products, orders, customers, payments via Stripe. Order confirmation sent via Gmail.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3314,
+      "estimatedTokenCost": "$0.0109",
+      "integrationsDetected": [
+        "gmail",
+        "stripe"
+      ],
+      "repairLog": []
+    },
+    {
+      "prompt": "Event management platform. Organizers create events, attendees register, QR check-in at the door. Confirmation via WhatsApp.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3254,
+      "estimatedTokenCost": "$0.0081",
+      "integrationsDetected": [],
+      "repairLog": []
+    },
+    {
+      "prompt": "Project tracker. Projects, milestones, tasks. Sync tasks to Jira. Update a Google Sheet with weekly progress.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3638,
+      "estimatedTokenCost": "$0.0082",
+      "integrationsDetected": [
+        "jira"
+      ],
+      "repairLog": []
+    },
+    {
+      "prompt": "An app.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3646,
+      "estimatedTokenCost": "$0.0073",
+      "integrationsDetected": [],
+      "repairLog": []
+    },
+    {
+      "prompt": "Build something like Notion for doctors.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3280,
+      "estimatedTokenCost": "$0.0072",
+      "integrationsDetected": [],
+      "repairLog": []
+    },
+    {
+      "prompt": "A platform with login, payments, roles, real-time chat, file uploads, native mobile, analytics, and a marketplace.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 3343,
+      "estimatedTokenCost": "$0.0103",
+      "integrationsDetected": [
+        "stripe"
+      ],
+      "repairLog": []
+    },
+    {
+      "prompt": "A CRM but also a project manager but also an invoicing tool.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 2850,
+      "estimatedTokenCost": "$0.0116",
+      "integrationsDetected": [],
+      "repairLog": []
+    },
+    {
+      "prompt": "Task manager, but make it smart.",
+      "success": true,
+      "stageFailed": null,
+      "repairStrategyUsed": null,
+      "retryCount": 0,
+      "latencyMs": 2754,
+      "estimatedTokenCost": "$0.0070",
+      "integrationsDetected": [],
+      "repairLog": []
+    }
+  ]
+}

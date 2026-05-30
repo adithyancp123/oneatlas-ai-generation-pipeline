@@ -1,5 +1,6 @@
 import type { ValidationError } from "@/types/job";
 import type { PipelineStageId } from "@/types/pipeline";
+import type { RepairStrategyName } from "@/lib/pipeline/repair/repair-engine";
 
 const STRUCTURAL_CODES = new Set([
   "invalid_type",
@@ -16,13 +17,12 @@ const FIELD_CODES = new Set([
   "relation_not_bidirectional",
   "relation_invalid_from",
   "relation_invalid_to",
-  "page_without_endpoint",
 ]);
 
 const CONSISTENCY_CODES = new Set([
   "page_unknown_entity",
   "page_without_endpoint",
-  "page_api_bound_mismatch",
+  "page_missing_entities",
   "api_invalid_bound_entity",
   "dataschema_stage_mismatch",
   "integration_not_in_registry",
@@ -31,6 +31,7 @@ const CONSISTENCY_CODES = new Set([
   "integration_invalid_config",
   "workflow_invalid_trigger",
   "workflow_invalid_action",
+  "workflow_invalid_entity",
   "workflow_invalid_trigger_entity",
   "workflow_invalid_step_integration",
   "workflow_invalid_step_action",
@@ -39,6 +40,7 @@ const CONSISTENCY_CODES = new Set([
   "auth_permission_unknown_entity",
   "auth_permission_unknown_role",
   "entity_table_mismatch",
+  "manual_hint",
 ]);
 
 export function resolveSourceStageId(
@@ -49,13 +51,17 @@ export function resolveSourceStageId(
   return fromError ?? fallback;
 }
 
-export function errorsForStrategy(strategy: string, errors: ValidationError[]): ValidationError[] {
+export function errorsForStrategy(
+  strategy: RepairStrategyName | string,
+  errors: ValidationError[],
+): ValidationError[] {
   switch (strategy) {
     case "structural":
       return errors.filter(
         (e) =>
           STRUCTURAL_CODES.has(e.code) ||
           e.message.toLowerCase().includes("json") ||
+          e.field.toLowerCase().includes("json") ||
           e.path.toLowerCase().includes("json"),
       );
     case "field":
@@ -67,66 +73,49 @@ export function errorsForStrategy(strategy: string, errors: ValidationError[]): 
   }
 }
 
-/** Stringified repair context for graders — code, message, path, stage. */
-export function formatRepairInputError(
+/** Structured repair log payload: validation errors that triggered the strategy. */
+export function formatRepairErrorInput(
   errors: ValidationError[],
-  strategy: string,
+  strategy: RepairStrategyName | string,
 ): string {
   const relevant = errorsForStrategy(strategy, errors);
-  const slice = (relevant.length > 0 ? relevant : errors).slice(0, 5);
+  const slice = (relevant.length > 0 ? relevant : errors).slice(0, 8);
 
   if (slice.length === 0) {
-    return JSON.stringify({ code: "validation_failure", message: "No validation errors supplied" });
+    return JSON.stringify({
+      code: "validation_failure",
+      message: "No validation errors supplied",
+    });
   }
 
   return JSON.stringify(
     slice.map((e) => ({
       code: e.code,
       message: e.message,
-      path: e.path || undefined,
+      field: e.field || e.path,
       stageId: e.stageId,
     })),
   );
 }
 
+/** @deprecated Use formatRepairErrorInput */
+export const formatRepairInputError = formatRepairErrorInput;
+
 export function hasJsonStructuralErrors(errors: ValidationError[]): boolean {
   return errorsForStrategy("structural", errors).length > 0;
 }
 
-/** Consistency repair log — includes reviewer notes when placeholder endpoints are created. */
-export function formatConsistencyRepairLog(
-  errors: ValidationError[],
-  repairNotes: string[],
-): string {
-  const validationErrors = JSON.parse(formatRepairInputError(errors, "consistency")) as {
-    code: string;
-    message: string;
-    path?: string;
-    stageId?: string;
-  }[];
-
-  return JSON.stringify(
-    {
-      reason:
-        repairNotes.length > 0
-          ? "Auto-created placeholder endpoint for orphan page"
-          : undefined,
-      repairNotes,
-      validationErrors,
-    },
-    null,
-    2,
-  );
-}
-
-export function extractRepairNotices(repairLog: { entries: { strategy: string; inputError: string }[] } | null): string[] {
+export function extractRepairNotices(
+  repairLog: { entries: { strategy: string; errorInput?: string; inputError?: string }[] } | null,
+): string[] {
   const notices: string[] = [];
   for (const entry of repairLog?.entries ?? []) {
     if (entry.strategy !== "consistency") continue;
+    const raw = entry.errorInput ?? entry.inputError;
+    if (!raw) continue;
     try {
-      const parsed = JSON.parse(entry.inputError) as {
-        repairNotes?: string[];
-      };
+      const parsed = JSON.parse(raw) as { repairNotes?: string[] } | { message?: string }[];
+      if (Array.isArray(parsed)) continue;
       if (Array.isArray(parsed.repairNotes)) {
         for (const note of parsed.repairNotes) {
           if (!notices.includes(note)) notices.push(note);

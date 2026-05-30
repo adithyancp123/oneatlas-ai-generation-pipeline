@@ -1,9 +1,7 @@
-import { aiGateway } from "@/lib/ai/gateway";
-import { providerExecutionFromGateway } from "@/lib/ai/provider-execution";
 import { buildMockAppSpec } from "@/lib/pipeline/mocks";
 import {
-  formatConsistencyRepairLog,
-  formatRepairInputError,
+  errorsForStrategy,
+  formatRepairErrorInput,
   hasJsonStructuralErrors,
   resolveSourceStageId,
 } from "@/lib/pipeline/repair/repair-log";
@@ -17,6 +15,8 @@ import type { RepairLog, RepairLogEntry, RepairOutcome, ValidationError } from "
 import type { PipelineStageId } from "@/types/pipeline";
 import type { ProviderExecutionMeta } from "@/types/provider-execution";
 
+export type RepairStrategyName = "structural" | "field" | "consistency";
+
 export interface RepairEngineInput {
   jobId: string;
   prompt: string;
@@ -25,13 +25,9 @@ export interface RepairEngineInput {
   draftSpec: Partial<AppSpec> | null;
   validationErrors: ValidationError[];
   existingLog: RepairLog | null;
-  /** Repair round 1–3 from orchestrator */
   repairAttempt: number;
-  /** Stage that produced the validation errors */
   sourceStageId?: PipelineStageId;
-  /** Raw stage text when available — structural repair runs here before parsed spec */
   rawStageOutput?: string;
-  useLlm?: boolean;
 }
 
 export interface RepairEngineResult {
@@ -48,17 +44,19 @@ function buildBaseSpec(intent: AppIntent, dataSchema: DataSchema, draft: Partial
 }
 
 function logEntry(
-  strategy: string,
-  inputError: string,
+  strategy: RepairStrategyName,
+  validationErrors: ValidationError[],
   attempt: number,
   outcome: RepairOutcome,
   latencyMs: number,
   errorsFixed: number,
   stageId: PipelineStageId,
 ): RepairLogEntry {
+  const errorInput = formatRepairErrorInput(validationErrors, strategy);
   return {
     strategy,
-    inputError,
+    errorInput,
+    inputError: errorInput,
     attempt,
     outcome,
     latencyMs,
@@ -76,19 +74,19 @@ export async function runRepairEngine(input: RepairEngineInput): Promise<RepairE
   let spec = buildBaseSpec(input.intent, input.dataSchema, input.draftSpec);
   let errors = [...input.validationErrors];
 
-  // Structural: prefer raw stage output when JSON/parse errors exist (pre-parse path).
   const structuralStart = Date.now();
   const structuralInput =
     input.rawStageOutput && hasJsonStructuralErrors(errors) ? input.rawStageOutput : spec;
-  const structural = repairStructuralJson(structuralInput, errors);
+  const structural = repairStructuralJson(structuralInput, errors, stageId);
   if (structural.repaired) {
     const parsed = appSpecSchema.safeParse(structural.value);
     if (parsed.success) spec = parsed.data as AppSpec;
   }
+  const structuralErrors = errorsForStrategy("structural", errors);
   entries.push(
     logEntry(
       "structural",
-      formatRepairInputError(errors, "structural"),
+      structuralErrors.length > 0 ? structuralErrors : errors,
       attempt,
       structural.repaired ? "repaired" : "failed",
       Date.now() - structuralStart,
@@ -98,16 +96,23 @@ export async function runRepairEngine(input: RepairEngineInput): Promise<RepairE
   );
 
   const fieldStart = Date.now();
-  const fieldResult = repairFields(spec, errors);
+  const fieldResult = await repairFields(spec, errors, {
+    jobId: input.jobId,
+    prompt: input.prompt,
+    stageId,
+    intent: input.intent,
+    dataSchema: input.dataSchema,
+  });
   if (fieldResult.repaired) {
     spec = fieldResult.spec;
   }
+  const fieldErrors = errorsForStrategy("field", errors);
   entries.push(
     logEntry(
       "field",
-      formatRepairInputError(errors, "field"),
+      fieldErrors.length > 0 ? fieldErrors : errors,
       attempt,
-      fieldResult.repaired ? "repaired" : "failed",
+      fieldResult.repaired ? (fieldResult.escalated ? "escalated" : "repaired") : "failed",
       Date.now() - fieldStart,
       fieldResult.fixedCodes.length,
       stageId,
@@ -115,84 +120,34 @@ export async function runRepairEngine(input: RepairEngineInput): Promise<RepairE
   );
 
   const consistencyStart = Date.now();
-  const consistencyResult = repairConsistency(spec, errors, input.dataSchema);
+  const consistencyResult = await repairConsistency(
+    spec,
+    errors,
+    input.dataSchema,
+    input.jobId,
+  );
   if (consistencyResult.repaired) {
     spec = consistencyResult.spec;
   }
+  const consistencyErrors = errorsForStrategy("consistency", errors);
   entries.push(
     logEntry(
       "consistency",
-      formatConsistencyRepairLog(errors, consistencyResult.repairNotes),
+      consistencyErrors.length > 0 ? consistencyErrors : errors,
       attempt,
-      consistencyResult.repaired ? "repaired" : "failed",
+      consistencyResult.repaired
+        ? consistencyResult.needsLlm
+          ? "escalated"
+          : "repaired"
+        : "failed",
       Date.now() - consistencyStart,
       consistencyResult.fixedCodes.length,
       stageId,
     ),
   );
 
-  let validation = validateAppSpec(spec, { canonicalDataSchema: input.dataSchema });
+  const validation = validateAppSpec(spec, { canonicalDataSchema: input.dataSchema });
   errors = validation.errors;
-  let providerExecution: ProviderExecutionMeta | undefined;
-
-  if (!validation.valid && input.useLlm !== false) {
-    const llmStart = Date.now();
-    const llmInputError = formatRepairInputError(errors, "llm_correction");
-    try {
-      const correctionPrompt = [
-        "Repair the following AppSpec JSON to fix validation errors.",
-        `Errors: ${JSON.stringify(errors.slice(0, 5))}`,
-        `Current spec: ${JSON.stringify(spec).slice(0, 4000)}`,
-      ].join("\n");
-
-      const gw = await aiGateway.generateForStage(
-        { stageId: "repair", prompt: correctionPrompt, metadata: { jobId: input.jobId } },
-        appSpecSchema,
-      );
-      providerExecution = providerExecutionFromGateway(gw);
-
-      if (!gw.mock && typeof gw.data === "object") {
-        spec = gw.data as AppSpec;
-        validation = validateAppSpec(spec);
-        errors = validation.errors;
-        entries.push(
-          logEntry(
-            "llm_correction",
-            llmInputError,
-            attempt,
-            validation.valid ? "repaired" : "escalated",
-            Date.now() - llmStart,
-            validation.valid ? 1 : 0,
-            stageId,
-          ),
-        );
-      } else {
-        entries.push(
-          logEntry(
-            "llm_correction",
-            llmInputError,
-            attempt,
-            "failed",
-            Date.now() - llmStart,
-            0,
-            stageId,
-          ),
-        );
-      }
-    } catch {
-      entries.push(
-        logEntry(
-          "llm_correction",
-          llmInputError,
-          attempt,
-          "failed",
-          Date.now() - llmStart,
-          0,
-          stageId,
-        ),
-      );
-    }
-  }
 
   const repairLog: RepairLog = {
     jobId: input.jobId,
@@ -204,6 +159,5 @@ export async function runRepairEngine(input: RepairEngineInput): Promise<RepairE
     appSpec: validation.valid ? spec : null,
     repairLog,
     remainingErrors: errors,
-    ...(providerExecution !== undefined ? { providerExecution } : {}),
   };
 }

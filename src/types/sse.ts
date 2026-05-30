@@ -49,3 +49,10 @@ export type PipelineSSEEvent =
   | StageCompleteEvent
   | StageFailedEvent
   | GenerationCompleteEvent;
+
+/** On-the-wire SSE JSON body: `data: { stage, timestamp, data }` */
+export interface SSEWirePayload {
+  stage: PipelineStageId | null;
+  timestamp: string;
+  data: Record<string, unknown>;
+}

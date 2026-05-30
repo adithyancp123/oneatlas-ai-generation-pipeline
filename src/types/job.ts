@@ -14,12 +14,20 @@ export type RepairOutcome = "repaired" | "escalated" | "failed";
 export interface ValidationError {
   code: string;
   message: string;
+  /** Dot-path to the invalid value (e.g. pages.page-contact) */
+  field: string;
+  /** @deprecated Use `field` — kept for backward compatibility */
   path: string;
   stageId?: PipelineStageId;
 }
 
+export type RepairStrategyName = "structural" | "field" | "consistency";
+
 export interface RepairLogEntry {
-  strategy: string;
+  strategy: RepairStrategyName | string;
+  /** JSON string of validation error(s) that triggered this attempt */
+  errorInput: string;
+  /** @deprecated Use errorInput */
   inputError: string;
   attempt: number;
   outcome: RepairOutcome;

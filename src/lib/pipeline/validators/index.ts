@@ -24,6 +24,7 @@ export {
   type GenerationJobOutput,
 } from "@/lib/pipeline/validators/schemas";
 export {
+  validateAppIntent,
   validateAppSpec,
   validateDataSchema,
   validateDataSchemaSemantics,

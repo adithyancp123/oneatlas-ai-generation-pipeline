@@ -1,5 +1,9 @@
+import { aiGateway } from "@/lib/ai/gateway";
 import { INTEGRATION_REGISTRY } from "@/lib/integrations/registry";
+import { closestStringMatch } from "@/lib/pipeline/repair/strategies/fuzzy-match";
 import { repairOrphanPages } from "@/lib/pipeline/repair/strategies/orphan-pages";
+import { appSpecSchema } from "@/lib/pipeline/validators";
+import { buildEntityRefSets, entityRefExists } from "@/lib/pipeline/validators/entity-refs";
 import type { AppSpec, DataSchema, IntegrationHook } from "@/types/domain";
 import type { ValidationError } from "@/types/job";
 
@@ -7,8 +11,9 @@ export interface ConsistencyRepairResult {
   repaired: boolean;
   spec: AppSpec;
   fixedCodes: string[];
-  /** Reviewer-facing notes (placeholder endpoints, etc.) */
   repairNotes: string[];
+  needsLlm: boolean;
+  llmPrompt?: string;
 }
 
 function enrichApiBoundEntities(spec: AppSpec): AppSpec {
@@ -22,23 +27,72 @@ function enrichApiBoundEntities(spec: AppSpec): AppSpec {
   };
 }
 
-export function repairConsistency(
+function mapIntegrationToNearest(id: string): string | null {
+  const registryIds = INTEGRATION_REGISTRY.map((i) => i.id);
+  return closestStringMatch(id, registryIds);
+}
+
+function mapPageEntitiesToNearest(spec: AppSpec): { spec: AppSpec; fixed: boolean; notes: string[] } {
+  const entityNames = spec.dataSchema.entities.map((e) => e.name);
+  let fixed = false;
+  const notes: string[] = [];
+
+  const pages = spec.pages.map((page) => {
+    const mapped = page.entities.map((ref) => {
+      if (entityNames.includes(ref)) return ref;
+      const closest = closestStringMatch(ref, entityNames);
+      if (closest) {
+        fixed = true;
+        notes.push(`Mapped page entity "${ref}" → "${closest}"`);
+        return closest;
+      }
+      return ref;
+    });
+    return { ...page, entities: mapped };
+  });
+
+  return { spec: { ...spec, pages }, fixed, notes };
+}
+
+export async function repairConsistency(
   spec: AppSpec,
   errors: ValidationError[],
   canonicalDataSchema?: DataSchema,
-): ConsistencyRepairResult {
+  jobId?: string,
+): Promise<ConsistencyRepairResult> {
   let repaired = false;
   const fixedCodes: string[] = [];
   const repairNotes: string[] = [];
   let next = enrichApiBoundEntities(spec);
+  let needsLlm = false;
+  let llmPrompt: string | undefined;
 
   const registryIds = new Set(INTEGRATION_REGISTRY.map((i) => i.id));
+  const { names, tables } = buildEntityRefSets(next.dataSchema);
 
   for (const error of errors) {
     if (error.code === "dataschema_stage_mismatch" && canonicalDataSchema) {
       next = { ...next, dataSchema: canonicalDataSchema };
       repaired = true;
       fixedCodes.push("consistency_align_dataschema");
+    }
+
+    if (error.code === "page_unknown_entity") {
+      const mapped = mapPageEntitiesToNearest(next);
+      if (mapped.fixed) {
+        next = mapped.spec;
+        repaired = true;
+        fixedCodes.push("consistency_map_page_entity");
+        repairNotes.push(...mapped.notes);
+      } else {
+        needsLlm = true;
+        llmPrompt = [
+          "A page references an entity that does not exist in dataSchema.entities.",
+          `Error: ${error.message}`,
+          `Field: ${error.field}`,
+          "Return ONLY the corrected pages array JSON.",
+        ].join("\n");
+      }
     }
 
     if (error.code === "page_without_endpoint") {
@@ -58,6 +112,15 @@ export function repairConsistency(
           if (!ep.boundEntity) return ep;
           const valid = next.dataSchema.entities.some((e) => e.name === ep.boundEntity);
           if (valid) return ep;
+          const closest = closestStringMatch(
+            ep.boundEntity,
+            next.dataSchema.entities.map((e) => e.name),
+          );
+          if (closest) {
+            repaired = true;
+            fixedCodes.push("consistency_map_api_bound_entity");
+            return { ...ep, boundEntity: closest };
+          }
           const match = next.dataSchema.entities.find((e) => ep.path.includes(e.tableName));
           if (!match) {
             const rest = { ...ep };
@@ -68,29 +131,29 @@ export function repairConsistency(
         }),
       };
       repaired = true;
-      fixedCodes.push("consistency_fix_api_bound_entity");
-    }
-
-    if (error.code === "page_api_bound_mismatch") {
-      next = enrichApiBoundEntities(next);
-      const orphanResult = repairOrphanPages(next);
-      if (orphanResult.repaired) {
-        next = orphanResult.spec;
-        repaired = true;
-        fixedCodes.push("consistency_orphan_page_endpoint");
-        repairNotes.push(...orphanResult.notes);
-      }
-      repaired = true;
-      fixedCodes.push("consistency_enrich_api_bound_entity");
     }
 
     if (error.code === "integration_not_in_registry") {
-      next = {
-        ...next,
-        integrations: next.integrations.filter((h) => registryIds.has(h.integrationId)),
-      };
-      repaired = true;
-      fixedCodes.push("consistency_remove_unknown_integration");
+      const hookId = error.field.replace(/^integrations\./, "").split(".")[0] ?? "";
+      const nearest = mapIntegrationToNearest(hookId);
+      if (nearest) {
+        next = {
+          ...next,
+          integrations: next.integrations.map((hook) =>
+            hook.integrationId === hookId ? { ...hook, integrationId: nearest } : hook,
+          ),
+        };
+        repaired = true;
+        fixedCodes.push("consistency_map_integration_registry");
+        repairNotes.push(`Mapped integration "${hookId}" → registry id "${nearest}"`);
+      } else {
+        next = {
+          ...next,
+          integrations: next.integrations.filter((h) => registryIds.has(h.integrationId)),
+        };
+        repaired = true;
+        fixedCodes.push("consistency_remove_unknown_integration");
+      }
     }
 
     if (error.code === "integration_invalid_action" || error.code === "integration_invalid_trigger") {
@@ -133,6 +196,37 @@ export function repairConsistency(
       }
     }
 
+    if (
+      error.code === "workflow_invalid_entity" ||
+      error.code === "workflow_invalid_trigger_entity"
+    ) {
+      const badRef = error.field.split(".").pop() ?? "";
+      const closest = closestStringMatch(badRef, [...names]);
+      if (closest && entityRefExists(closest, names, tables)) {
+        next = {
+          ...next,
+          workflows: next.workflows.map((wf) => ({
+            ...wf,
+            triggerMeta: {
+              ...(wf.triggerMeta ?? {}),
+              entity: closest,
+              event: wf.triggerMeta?.event ?? wf.trigger,
+            },
+          })),
+        };
+        repaired = true;
+        fixedCodes.push("consistency_map_workflow_entity");
+        repairNotes.push(`Mapped workflow entity "${badRef}" → "${closest}"`);
+      } else {
+        needsLlm = true;
+        llmPrompt = [
+          "A workflow references an entity that does not exist in dataSchema.",
+          `Error: ${error.message}`,
+          "Return ONLY the corrected workflows array JSON with valid triggerMeta.entity values.",
+        ].join("\n");
+      }
+    }
+
     if (error.code === "workflow_invalid_action" || error.code === "workflow_invalid_step_action") {
       if (next.integrations.length > 0) {
         next = {
@@ -148,21 +242,6 @@ export function repairConsistency(
         };
         repaired = true;
         fixedCodes.push("consistency_normalize_workflow_steps");
-      }
-    }
-
-    if (error.code === "workflow_invalid_trigger_entity" && next.integrations[0]) {
-      const entityName = next.dataSchema.entities[0]?.name;
-      if (entityName) {
-        next = {
-          ...next,
-          workflows: next.workflows.map((wf) => ({
-            ...wf,
-            triggerMeta: { entity: entityName, event: wf.triggerMeta?.event ?? wf.trigger },
-          })),
-        };
-        repaired = true;
-        fixedCodes.push("consistency_normalize_workflow_trigger_meta");
       }
     }
 
@@ -218,7 +297,31 @@ export function repairConsistency(
     }
   }
 
-  return { repaired, spec: next, fixedCodes, repairNotes };
+  if (needsLlm && llmPrompt && jobId) {
+    try {
+      const gw = await aiGateway.generateForStage(
+        { stageId: "repair", prompt: llmPrompt, metadata: { jobId, repairStrategy: "consistency" } },
+        appSpecSchema,
+      );
+      if (!gw.mock && gw.data && typeof gw.data === "object" && "version" in gw.data) {
+        next = gw.data as AppSpec;
+        repaired = true;
+        fixedCodes.push("consistency_llm_escalation");
+        needsLlm = false;
+      }
+    } catch {
+      /* keep needsLlm true */
+    }
+  }
+
+  return {
+    repaired,
+    spec: next,
+    fixedCodes,
+    repairNotes,
+    needsLlm,
+    ...(llmPrompt !== undefined ? { llmPrompt } : {}),
+  };
 }
 
 function normalizeHook(hook: IntegrationHook): IntegrationHook {

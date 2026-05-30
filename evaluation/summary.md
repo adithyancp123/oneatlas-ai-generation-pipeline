@@ -1,10 +1,10 @@
 # Evaluation Summary
 
-**Ran:** 2026-05-30T10:00:26.428Z
+**Ran:** 2026-05-30T10:21:10.054Z
 
 ## Results
 - **Success rate:** 100% (12/12)
-- **Average latency:** 3068ms
+- **Average latency:** 3437ms
 - **Average token cost:** $0.0087
 
 ## Failure analysis

@@ -1,229 +1,188 @@
-# AppSpec Pipeline
+# AppSpec Pipeline (OneAtlas Assignment)
 
-Production-quality multi-stage AI pipeline that converts natural language app descriptions into validated, machine-readable **AppSpec** documents.
+**Live demo:** [https://oneatlas-ai-generation-pipeline.vercel.app](https://oneatlas-ai-generation-pipeline.vercel.app) — deploy or redeploy via [DEPLOYMENT.md](DEPLOYMENT.md) if the link is not live yet.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/YOUR_REPO)
+Production-quality multi-stage AI pipeline that converts natural language app descriptions into validated, machine-readable **AppSpec** documents. Mock mode works with **zero API keys** — the gateway falls back to deterministic mocks so reviewers can run the full flow locally.
 
-> Replace `YOUR_USERNAME/YOUR_REPO` in the deploy button URL after pushing to GitHub.
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/adithyancp123/oneatlas-ai-generation-pipeline)
 
-## Project overview
+**Repository:** [github.com/adithyancp123/oneatlas-ai-generation-pipeline](https://github.com/adithyancp123/oneatlas-ai-generation-pipeline)
 
-This assignment implements an **AI-native AppSpec pipeline**: you describe an app in plain text, and the system runs a staged workflow (intent → schema → AppSpec), validates the result, repairs failures when possible, and streams progress to a dark SaaS dashboard.
+## Quick start (must work in under 5 minutes)
 
-**How it works**
+### Prerequisites
 
-1. The UI sends your prompt to `POST /api/generate`.
-2. The orchestrator runs four stages in order, each routed to a primary/fallback AI provider via `src/config/routing.ts`.
-3. Each stage output is validated (Zod + domain rules). Failures trigger the repair engine before expensive retries.
-4. Stage events stream over SSE; the client also polls every 3s for serverless resilience.
-5. A validated **AppSpec** (entities, API endpoints, workflows, integrations) appears in the right column.
+- **Node.js 18+** (Node 20+ recommended)
+- **npm** 9+
 
-Mock mode works with **zero API keys** — adapters fall back to deterministic mocks so reviewers can run the full flow locally or on Vercel.
-
-## Architecture
-
-```
-Prompt
-   ↓
-Intent Extraction
-   ↓
-Schema Generation
-   ↓
-AppSpec Generation
-   ↓
-Validation + Repair
-   ↓
-Final AppSpec
-```
-
-| Layer | Location | Responsibility |
-|-------|----------|----------------|
-| Routing | `src/config/routing.ts` | Per-stage primary/fallback models (env-driven) |
-| AI Gateway | `src/lib/ai/gateway/` | Provider abstraction, fallback, cost/latency |
-| Providers | `src/lib/ai/providers/` | SDK adapters (OpenAI, Anthropic, Groq, Gemini, …) |
-| Validation | `src/lib/pipeline/validators/` | Zod + 11+ domain rules |
-| Repair | `src/lib/pipeline/repair/` | Structural, field, consistency, optional LLM; full attempt logging |
-| Orchestration | `src/lib/pipeline/orchestration/` | Job lifecycle, SSE events |
-| Evaluation | `evaluation/` | 12-prompt regression suite |
-
-## Features
-
-- Config-driven AI routing
-- Multi-provider support (8 providers, mock fallback on all)
-- Repair engine (multi-strategy, up to 3 attempts)
-- Validation engine (structured errors, never throws)
-- SSE streaming with poll fallback
-- Cost tracking per stage
-- Evaluation suite (`npm run evaluate`)
-- Mock fallback mode (no keys required)
-- Responsive dark dashboard UI
-
-## Screenshots
-
-Add PNGs under `docs/screenshots/` before submission (see [docs/screenshots/README.md](docs/screenshots/README.md)).
-
-| UI | Description | File |
-|----|-------------|------|
-| Home dashboard | Empty state, prompt card, two-column layout | `home-dashboard.png` |
-| Generation flow | Status banner + Generate in progress | `generation-flow.png` |
-| Pipeline progress | Stage list with running/complete states | `pipeline.png` |
-| Provider configuration | AI Providers panel + routing summary | `providers.png` |
-| AppSpec output | Entities, endpoints, workflows tables | `appspec-output.png` |
-
-## Local setup
+### Steps
 
 ```bash
-git clone <repo-url>
+# 1. Clone repo
+git clone <your-repo-url>
 cd assignment5
-cp .env.example .env.local   # optional — mock mode needs no keys
+
+# 2. Copy env template and fill in API keys (optional for mock mode)
+cp .env.example .env.local
+# Edit .env.local — add at least one provider key for live LLM output, or leave empty for mocks
+
+# 3. Install dependencies
 npm install
+
+# 4. Start dev server
 npm run dev
+
+# 5. Open the dashboard
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000), enter a prompt (e.g. *“E-commerce backend with Stripe and Gmail order confirmations”*), and click **Generate**.
 
-Optional: set provider keys in `.env.local` for real LLM output (see [`.env.example`](.env.example)).
-
-## Verification
+**Verify before submit:**
 
 ```bash
-npm run lint              # ESLint, zero warnings
-npm run typecheck         # tsc --noEmit
-npm run build             # Production build
-npm run evaluate          # 12-prompt regression → evaluation/results.json
-npm run test:adversarial  # Malformed AppSpec repair cases (3/3)
+npm run lint && npm run typecheck && npm run build
+npx tsx evaluation/run-eval.ts   # requires npm run dev in another terminal
 ```
 
-Without API keys, `npm run evaluate` may log `SDK call failed — falling back to deterministic mock` for each stage. That is **expected** (fallback mode, not a test failure); the run still ends with `Evaluation complete: 12/12 succeeded`.
+## Environment variables
 
-Latest evaluation: **12/12 success** — see [evaluation/summary.md](evaluation/summary.md).  
-Full gate results: [docs/repo-health.md](docs/repo-health.md).
+All variables are loaded via `src/config/env.ts` (Zod-validated). **None are strictly required** for mock mode.
 
-## AppSpec consistency model
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NODE_ENV` | Optional | `development` \| `production` \| `test` (default: `development`) |
+| `NEXT_PUBLIC_APP_URL` | Optional | Public app URL for metadata / absolute links (e.g. `http://localhost:3000`) |
+| `OPENAI_API_KEY` | Optional | OpenAI API key (AppSpec generation, repair, fallback) |
+| `ANTHROPIC_API_KEY` | Optional | Anthropic API key |
+| `GROQ_API_KEY` | Optional | Groq API key (intent extraction primary) |
+| `GEMINI_API_KEY` | Optional | Google Gemini API key (schema generation primary) |
+| `GOOGLE_AI_API_KEY` | Optional | Alternate Gemini key (used if `GEMINI_API_KEY` unset) |
+| `DEEPSEEK_API_KEY` | Optional | DeepSeek API key |
+| `OPENROUTER_API_KEY` | Optional | OpenRouter universal fallback when configured |
+| `MISTRAL_API_KEY` | Optional | Mistral API key |
+| `OPENAI_DEFAULT_MODEL` | Optional | Override default OpenAI model name |
+| `ANTHROPIC_DEFAULT_MODEL` | Optional | Override default Anthropic model name |
+| `GROQ_DEFAULT_MODEL` | Optional | Override default Groq model name |
+| `GEMINI_DEFAULT_MODEL` | Optional | Override default Gemini model name |
+| `MISTRAL_DEFAULT_MODEL` | Optional | Override default Mistral model name |
+| `OPENROUTER_DEFAULT_MODEL` | Optional | Override default OpenRouter model (e.g. `openrouter/auto`) |
+| `DEEPSEEK_DEFAULT_MODEL` | Optional | Override default DeepSeek model name |
+| `INTENT_EXTRACTION_MODEL_OVERRIDE` | Optional | Force model for intent extraction stage |
+| `SCHEMA_GENERATION_MODEL_OVERRIDE` | Optional | Force model for schema generation stage |
+| `APP_SPEC_GENERATION_MODEL_OVERRIDE` | Optional | Force model for AppSpec generation stage |
+| `REPAIR_MODEL_OVERRIDE` | Optional | Force model for LLM-assisted repair |
+| `PIPELINE_MAX_RETRIES` | Optional | Max repair attempts per job (default: `3`) |
+| `PIPELINE_TIMEOUT_MS` | Optional | Pipeline timeout in ms (default: `120000`) |
+| `ENABLE_COST_TRACKING` | Optional | `true` \| `false` — per-stage cost lines on job (default: `true`) |
+| `LOG_LEVEL` | Optional | `debug` \| `info` \| `warn` \| `error` (default: `info`) |
 
-The AppSpec model is **intentionally simplified for internship scope** while preserving explicit consistency validation and repair. All extensions are **backward compatible** — older specs without optional fields still validate.
+Copy [`.env.example`](.env.example) to `.env.local` and paste keys. Placeholder values are treated as missing (mock mode).
 
-| Area | Simplified model | Optional extensions |
-|------|------------------|---------------------|
-| **Page ↔ API** | Path substring heuristic | `apiEndpoints[].boundEntity` for explicit entity binding |
-| **Intent transparency** | `assumptions[]` + `warnings[]` + confidence metadata | Scope narrowing, overscope, unsupported integrations, and heuristic `confidence` / `ambiguityLevel` surfaced in AppSpec intent (visible in UI) |
-| **Auth** | Roles + strategy | `auth.permissions[]` — lightweight entity/role/actions (not a full RBAC engine) |
-| **Workflows** | `trigger` string + `steps[]` | `triggerMeta`, `stepMeta[]` for entity/event and integration payload hints |
-| **DataSchema** | `tenant_id` field, snake_case tables | Bidirectional relation repair + cross-stage alignment with `schemaGeneration` |
+## Pipeline architecture
 
-Validation runs at each stage; repair strategies fix common drift before retry.
+### Three generation stages
 
-## Design decisions
+1. **Intent Extraction** — Parses the user prompt into structured intent: app type, entities, actors, goals, integration requests, assumptions, warnings, and confidence metadata. Routed to **Groq** (primary) with OpenAI fallback (`src/config/routing.ts`).
 
-These choices are deliberate for internship scope and reviewer accessibility — not omissions.
+2. **Schema Generation** — Produces `dataSchema`: entities, `snake_case` table names, fields (including `tenant_id`), and relations. Routed to **Gemini** (primary) with OpenAI fallback.
 
-| Decision | Rationale |
-|----------|-----------|
-| **Mock fallback** | Reviewers can clone, run, and evaluate without API keys or billing. When a provider call fails or keys are missing, the gateway returns deterministic mocks so the pipeline, validation, and repair paths always remain testable end-to-end. Mock fallback is **intentional** for reproducible evaluation and no-key demos — not a hidden failure mode. |
-| **Provider execution transparency** | Each pipeline stage records optional `providerExecutions` on the job (`live`, `mock`, or `fallback`, plus model, latency, and `fallbackReason` when applicable). The **pipeline progress** list and **AppSpec** panel show compact rows such as `Groq • live` or `Gemini • fallback(mock)` so reviewers can see whether output came from a live API call or mock fallback. |
-| **Implementation-ready integration stubs** | Five registry connectors (Slack, Gmail, Stripe, Jira, WhatsApp/Twilio) ship with typed `inputSchema` / `outputSchema`, payload validation, and stub adapters. This demonstrates integration architecture without live OAuth, webhooks, or vendor sandboxes in scope. |
-| **Assumptions over blocking clarification UX** | `clarificationRequired` is always `false` by schema contract. The system prefers **assumption-driven first-pass generation** over blocking clarification, while surfacing `confidence`, `ambiguityLevel`, and optional `clarificationReason` on the intent so reviewers see *how* ambiguous the prompt was — not a conversational clarification step. |
-| **Simplified workflow and auth models** | Workflows use flat `trigger` + `steps[]` (optional `triggerMeta` / `stepMeta`). Auth uses strategy + roles (+ optional lightweight `permissions[]`), not a full RBAC engine — enough for consistency validation and repair without over-building policy runtime. |
+3. **AppSpec Generation** — Assembles the full **AppSpec**: pages, API endpoints, auth rules, integration hooks, and workflow stubs. Routed to **OpenAI** (primary) with Groq fallback.
 
-## Reviewer notes
+After each stage, output is validated before the job advances. A dedicated **repair** stage runs when validation fails (up to 3 attempts).
 
-The pipeline does not silently discard user intent. Scope and integration decisions are surfaced on the final AppSpec under **Warnings** and **Assumptions** in the output panel (and in `intent.warnings[]` / `intent.assumptions[]` in JSON).
+### Validation engine
 
-| Prompt type | What happens |
-|-------------|----------------|
-| **Vague** (e.g. `An app.`) | Defaults to SaaS MVP entities; assumptions list multi-tenant auth, email/password, REST API. No crash; valid AppSpec. |
-| **Overscoped** (many features / domains) | MVP-first architecture; warning that scope is broad; assumptions note large-scope handling. |
-| **Conflicting domains** (e.g. CRM + ecommerce + ERP + blockchain) | Conflicting prompts are **narrowed deterministically** into an MVP-first coherent domain while exposing `detectedDomains`, `prioritizedDomain`, and `prioritizationReason` in the AppSpec intent (UI: **Domain prioritization** panel). Keyword scoring + fixed tie-break (CRM → ecommerce → ERP → marketplace → blockchain); assumptions and warnings preserved. |
-| **Unsupported integrations** (e.g. Telegram, Discord, SAP) | Unsupported integrations are preserved as structured metadata (`requestedIntegrations`, `supportedIntegrations`, `skippedIntegrations`) and surfaced explicitly in the UI instead of silently discarded. Warnings and assumptions remain; only registry IDs wire into `integrationsRequested` / AppSpec hooks. |
+- **Zod schemas** per stage (`appIntentSchema`, `dataSchemaSchema`, `appSpecSchema`) in `src/lib/pipeline/validators/schemas.ts`.
+- **Domain rules** in `validation-engine.ts`: `tenant_id` on entities, snake_case tables, page↔API binding, integration registry IDs, workflow refs, auth permissions, and more.
+- **Cross-layer checks** when validating the final AppSpec against the canonical `dataSchema` from stage 2 (entity/table alignment, bound entities on endpoints). Smoke test: `npm run test:cross-layer`.
 
-With API keys, LLM output may differ in detail, but the same enrichment runs on the intent stage so transparency fields remain populated.
+Validation returns structured errors (`code`, `message`, `field`, `stageId`) and never throws.
 
-**Provider execution mode** is surfaced in the UI for every completed stage (see **Provider execution** in the AppSpec panel and per-stage labels in the pipeline list). Modes: `live` (SDK succeeded), `mock` (no API key), `fallback` (SDK error or routed fallback provider with mock output).
+### Repair engine
 
-**Confidence metadata (heuristic, not ML):**
+Three deterministic strategies, applied in order (optional LLM correction on field/consistency when needed):
 
-| Field | Example |
-|-------|---------|
-| `confidence` | `0.45` (vague) → `0.92` (clear CRM) |
-| `ambiguityLevel` | `high` / `medium` / `low` |
-| `clarificationReason` | e.g. “Prompt is vague; assumptions applied for MVP generation” |
+| Strategy | Purpose |
+|----------|---------|
+| **structural** | Recover malformed JSON / missing top-level shape from raw stage output |
+| **field** | Fix `tenant_id`, snake_case tables, relations, orphan pages |
+| **consistency** | Align page↔API, registry integrations, workflows, auth, cross-stage `dataSchema` |
 
-`clarificationRequired` stays `false` — metadata explains reasoning without blocking the pipeline.
+Each attempt is logged in `job.repairLog.entries` (strategy, outcome, latency, errors fixed).
 
-## Failure recovery
+### AI gateway
 
-Every stage output passes through validation before the job advances. On failure:
+- **Config-driven routing** — `STAGE_ROUTING_CONFIG` in `src/config/routing.ts` defines primary/fallback provider per stage via env model keys (no hardcoded model names in stage code).
+- **Provider adapters** — OpenAI, Anthropic, Groq, Gemini, Mistral, DeepSeek, OpenRouter (+ mock when keys missing or SDK fails).
+- **OpenRouter fallback** — When `OPENROUTER_API_KEY` is set, OpenRouter is appended as a universal fallback after primary/fallback routes fail (`src/lib/ai/gateway/ai-gateway.ts`).
+- **Cost & latency** — Per-call token estimates stored on the job (`cost.lines[]`, `latencies[]`); surfaced in the UI.
 
-1. **Validation** — Zod structural checks plus domain rules (entities, `tenant_id`, page↔API binding, integration registry, cross-stage schema alignment, etc.). Errors are structured (`code`, `message`, `path`, `stageId`) and never throw.
-2. **Repair** — Up to **3 attempts** (`MAX_REPAIR_ATTEMPTS`), strategies applied in order:
-   - **Structural** — JSON / shape recovery from raw stage output when parse errors exist
-   - **Field** — `tenant_id`, snake_case tables, relation cleanup, reverse-edge repair
-   - **Consistency** — page/API binding, registry integrations, workflow refs, cross-stage `dataSchema` alignment
-   - **LLM correction** — optional provider call when deterministic repair is insufficient (skipped in mock-only runs)
-3. **Logs** — Each attempt appends to `repairLog.entries` (strategy, outcome, latency, `inputError` snapshot). Successful jobs **preserve** the log; the UI **Error / repair** panel shows rounds for debugging.
+**Streaming:** `GET /api/generate/:jobId/stream` emits SSE stage events; `job-store.replayEvents()` replays buffered events to late subscribers. The UI also polls every 3s for serverless resilience.
 
-If repair exhausts attempts, the job finalizes as `failed` with validation errors and partial logs — no infinite retry loop.
+## Integrations
 
-## Testing
+### Fully implemented (registry + typed schemas + payload validation + stub adapters)
 
-### Automated regression
+| ID | Name | Notes |
+|----|------|-------|
+| `slack` | Slack | Triggers/actions typed; stub adapter returns deterministic results |
+| `whatsapp-twilio` | WhatsApp (Twilio) | Inbound/outbound message schemas; stub adapter |
+| `gmail` | Gmail | Email send/receive hooks; stub adapter |
+| `stripe` | Stripe | Payments/subscriptions; stub adapter |
+| `jira` | Jira | Issues/comments; stub adapter |
 
-```bash
-npm run lint && npm run build && npm run evaluate && npm run test:adversarial
-```
+Live OAuth, webhooks, and vendor API calls are **out of scope** — adapters validate payloads and return stub execution results. Vendor credentials (`SLACK_CLIENT_ID`, `TWILIO_*`, `STRIPE_*`, etc.) are documented on each integration definition but are not required for the pipeline demo.
 
-Expect **12/12** evaluate + **3/3** adversarial repair — results in `evaluation/results.json`, `evaluation/summary.md`, and [docs/adversarial-results.md](docs/adversarial-results.md).
+### STUBBED / not in registry
 
-### Copy-paste reviewer prompts
+| Integration | Status |
+|-------------|--------|
+| **Google Sheets** | STUBBED — detected in prompts; no registry entry or adapter (export/sync not implemented) |
+| **Telegram** | STUBBED — keyword-detected only; surfaced in `skippedIntegrations` / warnings |
+| **Discord** | STUBBED — keyword-detected only; surfaced in warnings |
+| **SAP** | STUBBED — keyword-detected only; surfaced in warnings |
+| **HubSpot** | STUBBED — keyword-detected only; surfaced in warnings |
+| **Zendesk** | STUBBED — keyword-detected only; surfaced in warnings |
 
-Use these in the UI prompt box to verify expected behavior (mock mode is sufficient).
+Unsupported names are never silently dropped — they appear in AppSpec intent metadata (`requestedIntegrations`, `skippedIntegrations`, `warnings[]`).
 
-| Prompt | Expected behavior |
-|--------|-------------------|
-| `Build a CRM for real estate agents to track listings, buyers, and deal pipeline stages. Send Slack notifications when deals move stages.` | CRM entities and pages; **Slack** in spec integrations; valid AppSpec; few or no warnings. |
-| `Ecommerce store with Stripe payments and Gmail order confirmations.` | Ecommerce entities; **Stripe** + **Gmail** hooks; checkout/order flows in features. |
-| `Send Telegram + Discord webhook + SAP integration` | **No crash**; empty or registry-only `integrations`; **warnings** for Telegram, Discord, SAP; assumption that unsupported integrations were skipped. |
-| `Build a CRM + ecommerce + school ERP + blockchain voting platform` | **No crash**; output **narrowed** (typically CRM-first); **warnings** for multiple domains; assumptions explain scope narrowing and MVP-first architecture. |
+## Evaluation results
 
-Additional edge cases ship in `evaluation/prompts.ts` (vague, overscoped, conflicting roles).
+**Ran:** 2026-05-30T10:34:10.244Z  
+**Endpoint:** http://localhost:3000
 
-## Tradeoffs
+### Headline metrics
 
-| Choice | Why |
-|--------|-----|
-| **In-memory job store** | Fast local demo; no Redis dependency. Jobs do not persist across Vercel instances. |
-| **SSE + 3s polling** | Serverless may drop SSE on cold instances; poll reconciles UI state. |
-| **Heuristic intent enrichment** | With mock fallback, transparency fields are deterministic; live LLM text may vary but enrichment still runs post-intent. |
+This HTTP evaluation suite exercised all twelve assignment prompts (seven standard, five edge cases) against the live `POST /api/generate` and `GET /api/generate/:jobId` API on the running Next.js dev server, polling every 1.5 seconds with a 60-second timeout per job. **Success rate: 100%** (12/12 jobs completed with a non-null AppSpec). **Average pipeline latency:** 3262 ms (sum of per-stage `latencies` on the job). **Average estimated token cost:** $0.0093 per prompt. **Most common failure type:** no failures observed. Seven standard prompts covered CRM, task management, inventory, HR, e-commerce, events, and project tracking; edge cases included a one-word prompt, Notion-for-doctors, an overscoped marketplace stack, conflicting multi-product scope, and a vague “smart” task manager.
 
-See [Design decisions](#design-decisions) for mock fallback, integrations, clarification, and simplified models.
+### Failure analysis
 
-## Future improvements
+All twelve prompts completed without terminal failure. No repair attempts were required in this run (retry count zero across the board). The **weakest stage** observed was **none** (stage most associated with failure or validation errors). The dominant **repair strategy** was **none**. 6 of 12 runs emitted at least one integration hook in `appSpec.integrations` (Slack, Gmail, Stripe, Jira detected where named explicitly). 3 prompt(s) mentioned WhatsApp or Google Sheets but did not surface matching hooks — a quality gap despite overall success.
 
-- Durable job store (Redis / Postgres) for multi-instance deploys
-- `STRICT_PROVIDER_MODE` to fail when keys are invalid (vs silent mock)
-- Live integration OAuth and webhooks
-- Human clarification step for vague prompts
+Edge-case prompts stress intent extraction, domain prioritization, and MVP scope narrowing; integration-heavy standard prompts stress `appSpecGeneration` and hook wiring. Provider mode may be mock/fallback when API keys are absent; costs are gateway estimates, not billed usage.
 
-## Deployment
+### Concrete fix
 
-Full guide: [docs/deployment.md](docs/deployment.md)
+Strengthen integration extraction in the intent and AppSpec stages so WhatsApp (`whatsapp-twilio`) and Google Sheets appear in `integrations[]` when prompts request them, and add eval assertions in `run-eval.ts` for those IDs. Re-run `npx tsx evaluation/run-eval.ts` after changes.
 
-- Vercel: `npm run build` (see `vercel.json`)
-- **No env vars required** for mock mode
-- Node.js 20+; API routes use `runtime = "nodejs"`
+**Full per-prompt log:** [evaluation-log.json](evaluation-log.json)  
+**Summary (this section):** [evaluation-summary.md](evaluation-summary.md)  
+**Re-run:** `npx tsx evaluation/run-eval.ts` (dev server must be running)
 
-## Documentation
+## Known limitations and cuts made
 
-| Doc | Audience |
-|-----|----------|
-| [Reviewer guide](docs/reviewer-guide.md) | Recruiters — 1-minute quickstart |
-| [Final self-audit](docs/final-self-audit.md) | Requirement map, tradeoffs, confidence summary |
-| [Adversarial results](docs/adversarial-results.md) | Prompt + malformed-spec evidence (PASS/FAIL) |
-| [Repo health](docs/repo-health.md) | Lint/build/evaluate/adversarial gate results |
-| [Deployment](docs/deployment.md) | Vercel setup |
-| [Demo prompts](docs/demo-prompts.md) | Best prompts for demos |
-| [Demo script](docs/demo-script.md) | 60s walkthrough |
-| [Submission checklist](SUBMISSION_CHECKLIST.md) | Pre-submit gates |
+| Area | Deliberate cut |
+|------|----------------|
+| **Job persistence** | In-memory job store — jobs do not survive Vercel cold starts or multi-instance deploys |
+| **Integrations** | Registry + stub adapters only — no live OAuth, webhooks, or vendor sandboxes |
+| **Clarification UX** | `clarificationRequired` is always `false`; vague prompts use `assumptions[]` instead of blocking the user |
+| **Auth / workflows** | Simplified models (roles + flat workflow steps) — not a full RBAC or BPM engine |
+| **Page↔API binding** | Substring heuristic by default; optional `boundEntity` for explicit links |
+| **Durable SSE** | Event buffer is per-process; reconnect replay works within the same instance only |
+| **WhatsApp / Sheets in eval** | Prompts mentioning them do not always emit hooks — see evaluation summary |
+| **Screenshots / deploy URL** | Add `docs/screenshots/*.png` and Vercel preview URL before final recruiter handoff |
+
+See also [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md), [DEPLOYMENT.md](DEPLOYMENT.md), [docs/reviewer-guide.md](docs/reviewer-guide.md), and [docs/demo-script.md](docs/demo-script.md) (60s screen recording script).
 
 ## License
 

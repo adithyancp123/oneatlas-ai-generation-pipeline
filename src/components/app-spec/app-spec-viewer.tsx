@@ -1,6 +1,9 @@
 "use client";
 
+import { AppSpecErrorPanel } from "@/components/app-spec/appspec-error-panel";
+import { AuthRulesPanel } from "@/components/app-spec/auth-rules-panel";
 import { AppSpecSkeleton } from "@/components/app-spec/appspec-skeleton";
+import { WorkflowStubsPanel } from "@/components/app-spec/workflow-stubs-panel";
 import { ProviderExecutionPanel } from "@/components/pipeline/provider-execution-panel";
 import { usePipeline } from "@/hooks";
 import { Card, CardDescription, CardHeader, CardTitle, EmptyState } from "@/components/ui";
@@ -57,6 +60,7 @@ export function AppSpecViewer() {
               }
             : {})}
         />
+        <AppSpecErrorPanel />
       </Card>
     );
   }
@@ -294,33 +298,11 @@ export function AppSpecViewer() {
           </div>
         </section>
 
-        {appSpec.workflows.length > 0 ? (
-          <section className="content-section content-section-bordered">
-            <h4 className="section-heading">Workflows</h4>
-            <ul className="space-y-2">
-              {appSpec.workflows.map((wf) => (
-                <li key={wf.id} className="list-item-card">
-                  <p className="text-sm font-medium text-break text-zinc-100" title={wf.name}>
-                    {wf.name}
-                  </p>
-                  <p className="mt-0.5 text-xs text-break text-zinc-500" title={wf.trigger}>
-                    Trigger: {wf.trigger}
-                  </p>
-                  <ol className="mt-2 space-y-1.5 border-t border-zinc-800/70 pt-2">
-                    {wf.steps.map((step, index) => (
-                      <li key={step} className="flex gap-2 text-xs text-zinc-300">
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-zinc-700/80 bg-zinc-800/50 text-[9px] font-medium tabular-nums text-zinc-400">
-                          {index + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 pt-0.5 leading-relaxed text-break">{step}</span>
-                      </li>
-                    ))}
-                  </ol>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        <WorkflowStubsPanel workflows={appSpec.workflows} />
+
+        <AuthRulesPanel auth={appSpec.auth} />
+
+        <AppSpecErrorPanel />
 
         {appSpec.integrations.length > 0 ? (
           <section className="content-section content-section-bordered">

@@ -157,6 +157,7 @@ export const appSpecSchema = z.object({
 export const validationErrorSchema = z.object({
   code: z.string().min(1),
   message: z.string().min(1),
+  field: z.string(),
   path: z.string(),
   stageId: z
     .enum(["intentExtraction", "schemaGeneration", "appSpecGeneration", "repair"])
@@ -164,7 +165,8 @@ export const validationErrorSchema = z.object({
 });
 
 export const repairLogEntrySchema = z.object({
-  strategy: z.string().min(1),
+  strategy: z.enum(["structural", "field", "consistency"]).or(z.string().min(1)),
+  errorInput: z.string(),
   inputError: z.string(),
   attempt: z.number().int().positive(),
   outcome: z.enum(["repaired", "escalated", "failed"]),

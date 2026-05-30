@@ -1,9 +1,11 @@
 import { API_ROUTES } from "@/config/constants";
 import type { ProvidersOverview } from "@/lib/ai/providers/status";
-import type { AppSpec } from "@/types/domain";import type { GenerationJob } from "@/types/job";
+import { parseSSEWirePayload } from "@/lib/sse";
+import type { AppSpec } from "@/types/domain";
+import type { GenerationJob } from "@/types/job";
 import type { IntegrationDefinition } from "@/types/integrations";
 import type { GenerateResponse } from "@/types/pipeline";
-import type { PipelineSSEEvent } from "@/types/sse";
+import type { PipelineSSEEvent, PipelineSSEEventType, SSEWirePayload } from "@/types/sse";
 
 export async function startGeneration(prompt: string): Promise<GenerateResponse> {
   const response = await fetch(API_ROUTES.generate, {
@@ -70,7 +72,8 @@ export function subscribeToJobEvents(
   for (const type of eventTypes) {
     source.addEventListener(type, (message: MessageEvent<string>) => {
       try {
-        const event = JSON.parse(message.data) as PipelineSSEEvent;
+        const wire = JSON.parse(message.data) as SSEWirePayload;
+        const event = parseSSEWirePayload(type as PipelineSSEEventType, wire, jobId);
         onEvent(event);
       } catch {
         /* ignore malformed events */
