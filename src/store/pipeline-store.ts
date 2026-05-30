@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { AppSpec } from "@/types/domain";
 import type { CostBreakdown, RepairLog, StageLatency, ValidationError } from "@/types/job";
 import type { PipelineStageId } from "@/types/pipeline";
+import type { StageProviderExecution } from "@/types/provider-execution";
 
 export type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled" | null;
 
@@ -16,6 +17,7 @@ export interface PipelineStoreState {
   repairLog: RepairLog | null;
   cost: CostBreakdown | null;
   latencies: StageLatency[];
+  providerExecutions: StageProviderExecution[];
   isGenerating: boolean;
   setPrompt: (prompt: string) => void;
   setJobId: (jobId: string | null) => void;
@@ -27,6 +29,8 @@ export interface PipelineStoreState {
   setRepairLog: (log: RepairLog | null) => void;
   setCost: (cost: CostBreakdown | null) => void;
   setLatencies: (latencies: StageLatency[]) => void;
+  setProviderExecutions: (executions: StageProviderExecution[]) => void;
+  upsertProviderExecution: (execution: StageProviderExecution) => void;
   setIsGenerating: (value: boolean) => void;
   reset: () => void;
 }
@@ -43,6 +47,7 @@ const initialState: Pick<
   | "repairLog"
   | "cost"
   | "latencies"
+  | "providerExecutions"
   | "isGenerating"
 > = {
   jobId: null,
@@ -55,6 +60,7 @@ const initialState: Pick<
   repairLog: null,
   cost: null,
   latencies: [],
+  providerExecutions: [],
   isGenerating: false,
 };
 
@@ -70,6 +76,12 @@ export const usePipelineStore = create<PipelineStoreState>((set) => ({
   setRepairLog: (repairLog) => set({ repairLog }),
   setCost: (cost) => set({ cost }),
   setLatencies: (latencies) => set({ latencies }),
+  setProviderExecutions: (providerExecutions) => set({ providerExecutions }),
+  upsertProviderExecution: (execution) =>
+    set((state) => {
+      const rest = state.providerExecutions.filter((entry) => entry.stageId !== execution.stageId);
+      return { providerExecutions: [...rest, execution] };
+    }),
   setIsGenerating: (isGenerating) => set({ isGenerating }),
   reset: () => set({ ...initialState }),
 }));

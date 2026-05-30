@@ -1,5 +1,6 @@
 import type { AppSpec } from "@/types/domain";
 import type { PipelineStageId } from "@/types/pipeline";
+import type { StageProviderExecution } from "@/types/provider-execution";
 
 export type GenerationJobStatus =
   | "queued"
@@ -66,6 +67,8 @@ export interface GenerationJob {
   repairLog: RepairLog | null;
   cost: CostBreakdown | null;
   latencies: StageLatency[];
+  /** Per-stage provider execution mode (live / mock / fallback) for reviewer transparency. */
+  providerExecutions?: StageProviderExecution[];
   createdAt: string;
   updatedAt: string;
 }

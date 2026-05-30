@@ -1,6 +1,7 @@
 import type { AppSpec } from "@/types/domain";
 import type { RepairLog, ValidationError } from "@/types/job";
 import type { PipelineStageId } from "@/types/pipeline";
+import type { ProviderExecutionMeta } from "@/types/provider-execution";
 
 export type PipelineSSEEventType =
   | "stage_start"
@@ -24,6 +25,7 @@ export interface StageCompleteEvent extends PipelineSSEEventBase {
   stage: PipelineStageId;
   latencyMs: number;
   partialOutput?: unknown;
+  providerExecution?: ProviderExecutionMeta;
 }
 
 export interface StageFailedEvent extends PipelineSSEEventBase {
@@ -39,6 +41,7 @@ export interface GenerationCompleteEvent extends PipelineSSEEventBase {
   appSpec: AppSpec | null;
   totalLatencyMs: number;
   costUsd: number;
+  repairLog?: RepairLog;
 }
 
 export type PipelineSSEEvent =

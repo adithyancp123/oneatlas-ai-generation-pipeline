@@ -1,4 +1,5 @@
-import type { AppSpec, FieldSchema } from "@/types/domain";
+import type { AppSpec, DataSchema, EntitySchema, FieldSchema, RelationSchema } from "@/types/domain";
+import { buildEntityRefSets, entityRefExists } from "@/lib/pipeline/validators/entity-refs";
 import type { ValidationError } from "@/types/job";
 
 const TENANT_FIELD: FieldSchema = {
@@ -13,6 +14,56 @@ export interface FieldRepairResult {
   repaired: boolean;
   spec: AppSpec;
   fixedCodes: string[];
+}
+
+function repairDataSchemaRelations(schema: DataSchema): { schema: DataSchema; fixed: boolean } {
+  let fixed = false;
+  const entities: EntitySchema[] = schema.entities.map((e) => ({
+    ...e,
+    relations: [...e.relations],
+  }));
+  const { names, tables } = buildEntityRefSets({ entities });
+
+  for (const entity of entities) {
+    entity.relations = entity.relations.filter((rel) => {
+      const valid =
+        entityRefExists(rel.fromEntity, names, tables) &&
+        entityRefExists(rel.toEntity, names, tables);
+      if (!valid) fixed = true;
+      return valid;
+    });
+  }
+
+  for (const entity of entities) {
+    for (const rel of entity.relations) {
+      const target = entities.find(
+        (e) => e.tableName === rel.toEntity || e.name === rel.toEntity,
+      );
+      if (!target) continue;
+
+      const hasReverse = target.relations.some(
+        (r) => r.toEntity === entity.tableName || r.toEntity === entity.name,
+      );
+
+      if (!hasReverse) {
+        const reverse: RelationSchema = {
+          name: `reverse_${rel.name}`,
+          fromEntity: target.tableName,
+          toEntity: entity.tableName,
+          cardinality: rel.cardinality,
+        };
+        const duplicate = target.relations.some(
+          (r) => r.toEntity === reverse.toEntity && r.name === reverse.name,
+        );
+        if (!duplicate) {
+          target.relations.push(reverse);
+          fixed = true;
+        }
+      }
+    }
+  }
+
+  return { schema: { entities }, fixed };
 }
 
 export function repairFields(spec: AppSpec, errors: ValidationError[]): FieldRepairResult {
@@ -40,7 +91,7 @@ export function repairFields(spec: AppSpec, errors: ValidationError[]): FieldRep
         ...next,
         dataSchema: {
           entities: next.dataSchema.entities.map((entity) => {
-            const snake = entity.tableName
+            const snake = entity.name
               .replace(/([a-z])([A-Z])/g, "$1_$2")
               .replace(/\s+/g, "_")
               .toLowerCase();
@@ -51,6 +102,19 @@ export function repairFields(spec: AppSpec, errors: ValidationError[]): FieldRep
           }),
         },
       };
+    }
+
+    if (
+      error.code === "relation_not_bidirectional" ||
+      error.code === "relation_invalid_from" ||
+      error.code === "relation_invalid_to"
+    ) {
+      const relationFix = repairDataSchemaRelations(next.dataSchema);
+      if (relationFix.fixed) {
+        next = { ...next, dataSchema: relationFix.schema };
+        repaired = true;
+        fixedCodes.push("field_repair_relations");
+      }
     }
 
     if (error.code === "too_small" || error.code === "invalid_type") {

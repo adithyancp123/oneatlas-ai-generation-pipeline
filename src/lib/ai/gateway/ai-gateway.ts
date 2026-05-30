@@ -8,6 +8,7 @@ import type {
   ProviderId,
 } from "@/lib/ai/gateway/types";
 import { isRetryableProviderError, ProviderRequestError } from "@/lib/ai/gateway/types";
+import { applyRoutingExecution } from "@/lib/ai/provider-execution";
 import { resolveFallbackRoute, resolveRoute } from "@/lib/ai/routing/resolver";
 import { logger } from "@/lib/logging";
 import type { PipelineStageId } from "@/types/pipeline";
@@ -103,7 +104,8 @@ export class AIGateway {
 
     let lastError: unknown;
 
-    for (const attempt of attempts) {
+    for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex += 1) {
+      const attempt = attempts[attemptIndex]!;
       try {
         const response = await this.invokeProvider(attempt.provider, {
           ...input,
@@ -138,7 +140,12 @@ export class AIGateway {
           continue;
         }
 
-        return response;
+        const execution = applyRoutingExecution(
+          response,
+          attemptIndex,
+          primaryRoute.provider,
+        );
+        return { ...response, execution };
       } catch (error) {
         lastError = error;
         if (!isRetryableProviderError(error)) {

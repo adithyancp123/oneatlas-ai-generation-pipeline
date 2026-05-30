@@ -35,6 +35,9 @@ export async function POST(
     );
   }
 
+  const nextRepairAttempt =
+    (job.repairLog?.entries.reduce((max, e) => Math.max(max, e.attempt), 0) ?? 0) + 1;
+
   const result = await runRepairEngine({
     jobId,
     prompt: job.prompt,
@@ -43,6 +46,8 @@ export async function POST(
     draftSpec: job.appSpec,
     validationErrors: job.validationErrors,
     existingLog: job.repairLog,
+    repairAttempt: nextRepairAttempt,
+    sourceStageId: "appSpecGeneration",
   });
 
   const updated = store.updateJob(jobId, {

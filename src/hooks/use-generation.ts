@@ -33,6 +33,12 @@ export function useGeneration() {
       store.setCurrentStage(event.stage);
       const spec = extractAppSpecFromEvent(event);
       if (spec) store.setAppSpec(spec);
+      if (event.providerExecution) {
+        store.upsertProviderExecution({
+          stageId: event.stage,
+          ...event.providerExecution,
+        });
+      }
     }
 
     if (event.type === "stage_failed") {
@@ -47,12 +53,14 @@ export function useGeneration() {
       store.setCurrentStage(null);
       store.setAppSpec(event.appSpec);
       store.setIsGenerating(false);
+      if (event.repairLog) store.setRepairLog(event.repairLog);
       cleanup();
 
       void fetchJob(event.jobId).then((job) => {
         const s = usePipelineStore.getState();
         s.setCost(job.cost);
         s.setLatencies(job.latencies);
+        s.setProviderExecutions(job.providerExecutions ?? []);
         s.setRepairLog(job.repairLog);
         s.setValidationErrors(job.validationErrors);
       });
@@ -64,8 +72,10 @@ export function useGeneration() {
   }, [cleanup]);
 
   const generate = useCallback(async () => {
-    cleanup();
     const store = usePipelineStore.getState();
+    if (store.isGenerating) return;
+
+    cleanup();
     const prompt = store.prompt.trim();
 
     if (!prompt) {
@@ -85,6 +95,7 @@ export function useGeneration() {
     store.setJobId(null);
     store.setCost(null);
     store.setLatencies([]);
+    store.setProviderExecutions([]);
     store.setIsGenerating(true);
     store.setStatus("queued");
 
@@ -105,6 +116,7 @@ export function useGeneration() {
             s.setRepairLog(job.repairLog);
             s.setCost(job.cost);
             s.setLatencies(job.latencies);
+            s.setProviderExecutions(job.providerExecutions ?? []);
 
             if (
               job.status === "completed" ||

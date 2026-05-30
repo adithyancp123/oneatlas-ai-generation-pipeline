@@ -26,8 +26,10 @@ export {
 export {
   validateAppSpec,
   validateDataSchema,
+  validateDataSchemaSemantics,
   validateFullPipeline,
   validateIntent,
   validateStageOutput,
+  type ValidateAppSpecOptions,
   type ValidationEngineResult,
 } from "@/lib/pipeline/validators/validation-engine";

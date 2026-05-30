@@ -23,7 +23,7 @@ export function ProviderPanel() {
   }, []);
 
   return (
-    <Card>
+    <Card compact>
       <div className="card-header-split">
         <div className="card-header-inner">
           <CardTitle>AI Providers</CardTitle>
@@ -43,10 +43,15 @@ export function ProviderPanel() {
           {error}
         </p>
       ) : providers.length === 0 ? (
-        <EmptyState title="Loading providers" description="Fetching configuration status…" />
+        <EmptyState
+          compact
+          title="Loading provider registry"
+          description="Checking which models are configured and how stages are routed."
+          successHint="Success: provider list with key status and routing summary."
+        />
       ) : (
-        <div className="section-stack">
-          <ul className="space-y-2">
+        <div className="section-stack-tight">
+          <ul className="flex flex-col gap-1.5">
             {providers.map((provider) => (
               <li key={provider.id}>
                 <ProviderRow provider={provider} />
@@ -64,16 +69,16 @@ function ProviderRow({ provider }: { provider: ProviderStatus }) {
   return (
     <div className="list-item-card">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-zinc-100">{provider.displayName}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-zinc-500">{provider.configuredModel}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-break text-zinc-100">{provider.displayName}</p>
+          <p className="mt-0.5 text-mono-data">{provider.configuredModel}</p>
         </div>
         <StatusChip configured={provider.configured} />
       </div>
       {provider.routingRoles[0] && provider.routingRoles[0] !== "Available (not in active routing)" ? (
-        <p className="mt-2.5 text-xs leading-relaxed text-zinc-400">{provider.routingRoles[0]}</p>
+        <p className="mt-1.5 text-xs leading-snug text-zinc-400">{provider.routingRoles[0]}</p>
       ) : null}
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-2 flex flex-wrap gap-1.5">
         <span className={cn("badge normal-case", provider.apiKeyPresent ? "badge-success" : "badge-muted")}>
           {provider.apiKeyPresent ? "Key present" : "Missing key"}
         </span>
@@ -94,9 +99,9 @@ function RoutingSummary({ routing }: { routing: RoutingStageSummary[] }) {
   if (routing.length === 0) return null;
 
   return (
-    <div className="border-t border-zinc-800/70 pt-5">
+    <div className="routing-summary">
       <h4 className="section-heading">Routing summary</h4>
-      <ul className="space-y-2">
+      <ul className="space-y-1.5">
         {routing.map((entry) => (
           <li key={entry.stageId} className="routing-row">
             <span className="font-medium text-zinc-200">{entry.stageLabel}</span>

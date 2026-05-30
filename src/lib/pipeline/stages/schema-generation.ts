@@ -1,5 +1,6 @@
 import { aiGateway } from "@/lib/ai/gateway";
 import { buildMockDataSchema } from "@/lib/pipeline/mocks";
+import { stageProviderExecutionFromGateway } from "@/lib/pipeline/stages/stage-execution";
 import { dataSchemaSchema } from "@/lib/pipeline/validators";
 import { validateSchemaOutput } from "@/lib/pipeline/validators/stage-validator";
 import type { PipelineStage } from "@/lib/pipeline/stages/types";
@@ -35,6 +36,7 @@ export const schemaGenerationStage: PipelineStage<AppIntent, DataSchema> = {
         completionTokens: gatewayResponse.usage.completionTokens,
         estimatedUsd: gatewayResponse.estimatedCostUsd,
       },
+      providerExecution: stageProviderExecutionFromGateway(gatewayResponse),
       ...(validation.errors.length > 0 ? { errors: validation.errors } : {}),
     };
   },

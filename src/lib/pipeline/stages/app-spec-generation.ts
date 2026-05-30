@@ -1,5 +1,6 @@
 import { aiGateway } from "@/lib/ai/gateway";
 import { buildMockAppSpec } from "@/lib/pipeline/mocks";
+import { stageProviderExecutionFromGateway } from "@/lib/pipeline/stages/stage-execution";
 import { appSpecSchema } from "@/lib/pipeline/validators";
 import { validateAppSpecOutput } from "@/lib/pipeline/validators/stage-validator";
 import type { PipelineStage } from "@/lib/pipeline/stages/types";
@@ -24,7 +25,13 @@ export const appSpecGenerationStage: PipelineStage<AppSpecGenerationInput, AppSp
 
     const output: AppSpec = gatewayResponse.mock
       ? buildMockAppSpec(input.intent, input.dataSchema)
-      : gatewayResponse.data;
+      : ({
+          ...(gatewayResponse.data as AppSpec),
+          intent: {
+            ...(gatewayResponse.data as AppSpec).intent,
+            warnings: (gatewayResponse.data as AppSpec).intent.warnings ?? [],
+          },
+        } as AppSpec);
 
     const validation = validateAppSpecOutput(output);
 
@@ -40,6 +47,7 @@ export const appSpecGenerationStage: PipelineStage<AppSpecGenerationInput, AppSp
         completionTokens: gatewayResponse.usage.completionTokens,
         estimatedUsd: gatewayResponse.estimatedCostUsd,
       },
+      providerExecution: stageProviderExecutionFromGateway(gatewayResponse),
       ...(validation.errors.length > 0 ? { errors: validation.errors } : {}),
     };
   },

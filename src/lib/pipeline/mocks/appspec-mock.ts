@@ -1,4 +1,11 @@
-import type { AppIntent, AppSpec, DataSchema, IntegrationHook, PageSpec } from "@/types/domain";
+import type {
+  AppIntent,
+  AppSpec,
+  DataSchema,
+  EntityPermission,
+  IntegrationHook,
+  PageSpec,
+} from "@/types/domain";
 
 export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): AppSpec {
   const pages: PageSpec[] = [
@@ -25,6 +32,7 @@ export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): App
       path: `/api/${entity.tableName}`,
       description: `List ${entity.name} records`,
       authRequired: true,
+      boundEntity: entity.name,
     },
     {
       id: `api-create-${entity.tableName}`,
@@ -32,6 +40,7 @@ export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): App
       path: `/api/${entity.tableName}`,
       description: `Create ${entity.name} record`,
       authRequired: true,
+      boundEntity: entity.name,
     },
   ]);
 
@@ -72,24 +81,33 @@ export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): App
     .filter((id) => integrationDefaults[id])
     .map((id) => integrationDefaults[id] as IntegrationHook);
 
+  const permissions: EntityPermission[] = dataSchema.entities.flatMap((entity) => [
+    { entity: entity.name, role: "admin", actions: ["read", "write", "delete"] },
+    { entity: entity.name, role: "user", actions: ["read", "write"] },
+  ]);
+
   const workflows =
-    intent.appType === "crm"
+    integrations.length > 0
       ? [
           {
-            id: "wf-deal-won",
-            name: "Deal Won Notification",
-            steps: ["Validate deal stage", "Notify account owner", "Log activity"],
-            trigger: "deal.stage.changed",
+            id: "wf-primary-integration",
+            name: "Primary Integration Workflow",
+            steps: integrations.map((hook) => `${hook.integrationId}:${hook.action}`),
+            trigger: integrations[0]?.trigger ?? "message.posted",
+            triggerMeta: {
+              ...(dataSchema.entities[0]?.name
+                ? { entity: dataSchema.entities[0].name }
+                : {}),
+              ...(integrations[0]?.trigger ? { event: integrations[0].trigger } : {}),
+            },
+            stepMeta: integrations.map((hook) => ({
+              integrationId: hook.integrationId,
+              actionId: hook.action,
+              payloadMapping: { target: hook.integrationId },
+            })),
           },
         ]
-      : [
-          {
-            id: "wf-onboarding",
-            name: "User Onboarding",
-            steps: ["Create profile", "Send welcome email", "Show dashboard tour"],
-            trigger: "user.created",
-          },
-        ];
+      : [];
 
   return {
     version: "1.0",
@@ -103,6 +121,7 @@ export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): App
       strategy: "jwt",
       roles: ["admin", "user"],
       publicRoutes: ["/login", "/register"],
+      permissions,
     },
     integrations,
     workflows,

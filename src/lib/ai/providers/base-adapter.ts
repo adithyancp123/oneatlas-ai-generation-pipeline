@@ -15,8 +15,10 @@ import type {
 } from "@/lib/ai/gateway/types";
 import { ProviderRequestError } from "@/lib/ai/gateway/types";
 import { getApiKeyValue } from "@/config/env";
+import { executionModeFromMock } from "@/lib/ai/provider-execution";
 import { logger } from "@/lib/logging";
 import type { SDKCallResult } from "@/lib/ai/providers/sdk-types";
+import type { ProviderExecutionMeta } from "@/types/provider-execution";
 
 export interface ProviderEnvConfig {
   apiKeyEnv: string;
@@ -66,11 +68,29 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     });
   }
 
+  private buildExecutionMeta(
+    model: string,
+    mock: boolean,
+    latencyMs: number,
+    sdkFailed: boolean,
+    fallbackReason?: string,
+  ): ProviderExecutionMeta {
+    const mode = executionModeFromMock(mock, sdkFailed);
+    return {
+      provider: this.id,
+      model,
+      mode,
+      latencyMs,
+      ...(fallbackReason !== undefined ? { fallbackReason } : {}),
+    };
+  }
+
   private logResponse(model: string, response: AIGatewayResponse<string>): void {
+    const mode = response.execution?.mode ?? (response.mock ? "mock" : "live");
     logger.info("Provider completed", {
       provider: this.id,
       model,
-      mode: response.mock ? "mock" : "real",
+      mode,
       ...(response.metadata?.stageId !== undefined
         ? { stageId: response.metadata.stageId }
         : {}),
@@ -105,15 +125,24 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     this.logInvocation(model, configured, input);
 
     if (!configured) {
+      const latencyMs = Date.now() - start;
       const usage = estimateMockUsage(input.prompt);
+      const execution = this.buildExecutionMeta(
+        model,
+        true,
+        latencyMs,
+        false,
+        "API key not configured",
+      );
       const response: AIGatewayResponse<string> = {
         data: this.buildMockText(input),
         provider: this.id,
         model,
         usage,
         estimatedCostUsd: estimateCostUsd(this.id, model, usage),
-        latencyMs: Date.now() - start,
+        latencyMs,
         mock: true,
+        execution,
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
       };
       this.logResponse(model, response);
@@ -126,20 +155,30 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
       this.logResponse(model, response);
       return response;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "unknown";
       logger.warn("SDK call failed — falling back to deterministic mock", {
         provider: this.id,
         model,
-        error: error instanceof Error ? error.message : "unknown",
+        error: errorMessage,
       });
+      const latencyMs = Date.now() - start;
       const usage = estimateMockUsage(input.prompt);
+      const execution = this.buildExecutionMeta(
+        model,
+        true,
+        latencyMs,
+        true,
+        `SDK call failed: ${errorMessage}`,
+      );
       const response: AIGatewayResponse<string> = {
         data: this.buildMockText(input),
         provider: this.id,
         model,
         usage,
         estimatedCostUsd: estimateCostUsd(this.id, model, usage),
-        latencyMs: Date.now() - start,
+        latencyMs,
         mock: true,
+        execution,
         ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
       };
       this.logResponse(model, response);
@@ -219,14 +258,17 @@ export abstract class BaseProviderAdapter implements ProviderAdapter {
     startMs: number,
     mock: boolean,
   ): AIGatewayResponse<string> {
+    const latencyMs = Date.now() - startMs;
+    const execution = this.buildExecutionMeta(model, mock, latencyMs, false);
     return {
       data: result.text,
       provider: this.id,
       model,
       usage: result.usage,
       estimatedCostUsd: estimateCostUsd(this.id, model, result.usage),
-      latencyMs: Date.now() - startMs,
+      latencyMs,
       mock,
+      execution,
       ...(input.metadata !== undefined ? { metadata: input.metadata } : {}),
     };
   }

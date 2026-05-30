@@ -24,8 +24,25 @@ export const appIntentSchema = z.object({
   entities: z.array(extractedEntitySchema).min(1),
   integrationsRequested: z.array(z.string()),
   assumptions: z.array(z.string()),
+  warnings: z.array(z.string()).default([]),
   features: z.array(z.string().min(1)).min(1),
   clarificationRequired: z.literal(false),
+  confidence: z.number().min(0).max(1).optional(),
+  ambiguityLevel: z.enum(["low", "medium", "high"]).optional(),
+  clarificationReason: z.string().min(1).optional(),
+  detectedDomains: z.array(z.string().min(1)).optional(),
+  prioritizedDomain: z.string().min(1).optional(),
+  prioritizationReason: z.string().min(1).optional(),
+  requestedIntegrations: z.array(z.string().min(1)).optional(),
+  supportedIntegrations: z.array(z.string().min(1)).optional(),
+  skippedIntegrations: z
+    .array(
+      z.object({
+        integration: z.string().min(1),
+        reason: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 
 export const fieldSchema = z.object({
@@ -81,12 +98,20 @@ export const apiEndpointSchema = z.object({
   path: z.string().min(1),
   description: z.string(),
   authRequired: z.boolean(),
+  boundEntity: z.string().min(1).optional(),
+});
+
+export const entityPermissionSchema = z.object({
+  entity: z.string().min(1),
+  role: z.string().min(1),
+  actions: z.array(z.string().min(1)).min(1),
 });
 
 export const authRulesSchema = z.object({
   strategy: z.enum(["none", "session", "jwt", "oauth"]),
   roles: z.array(z.string()),
   publicRoutes: z.array(z.string()),
+  permissions: z.array(entityPermissionSchema).optional(),
 });
 
 export const integrationHookSchema = z.object({
@@ -96,11 +121,24 @@ export const integrationHookSchema = z.object({
   config: z.record(z.string()),
 });
 
+export const workflowTriggerMetaSchema = z.object({
+  entity: z.string().min(1).optional(),
+  event: z.string().min(1).optional(),
+});
+
+export const workflowStepMetaSchema = z.object({
+  integrationId: z.string().min(1).optional(),
+  actionId: z.string().min(1).optional(),
+  payloadMapping: z.record(z.string()).optional(),
+});
+
 export const workflowStubSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   steps: z.array(z.string().min(1)).min(1),
   trigger: z.string().min(1),
+  triggerMeta: workflowTriggerMetaSchema.optional(),
+  stepMeta: z.array(workflowStepMetaSchema).optional(),
 });
 
 export const appSpecSchema = z.object({
@@ -179,6 +217,18 @@ export const costBreakdownSchema = z.object({
   totalUsd: z.number().nonnegative(),
 });
 
+export const providerExecutionMetaSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+  mode: z.enum(["live", "mock", "fallback"]),
+  fallbackReason: z.string().optional(),
+  latencyMs: z.number().nonnegative().optional(),
+});
+
+export const stageProviderExecutionSchema = providerExecutionMetaSchema.extend({
+  stageId: z.enum(["intentExtraction", "schemaGeneration", "appSpecGeneration", "repair"]),
+});
+
 export const generationJobSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["queued", "running", "completed", "failed", "cancelled"]),
@@ -191,6 +241,7 @@ export const generationJobSchema = z.object({
   repairLog: repairLogSchema.nullable(),
   cost: costBreakdownSchema.nullable(),
   latencies: z.array(stageLatencySchema),
+  providerExecutions: z.array(stageProviderExecutionSchema).optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

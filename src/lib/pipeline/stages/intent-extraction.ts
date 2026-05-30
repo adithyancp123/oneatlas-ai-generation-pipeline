@@ -1,5 +1,7 @@
 import { aiGateway } from "@/lib/ai/gateway";
 import { buildMockIntent } from "@/lib/pipeline/mocks";
+import { stageProviderExecutionFromGateway } from "@/lib/pipeline/stages/stage-execution";
+import { enrichIntentWithPromptInsights } from "@/lib/pipeline/prompt-insights";
 import { appIntentSchema } from "@/lib/pipeline/validators";
 import { validateIntentOutput } from "@/lib/pipeline/validators/stage-validator";
 import type { PipelineStage } from "@/lib/pipeline/stages/types";
@@ -18,7 +20,10 @@ export const intentExtractionStage: PipelineStage<string, AppIntent> = {
 
     const output: AppIntent = gatewayResponse.mock
       ? buildMockIntent(prompt)
-      : gatewayResponse.data;
+      : enrichIntentWithPromptInsights(prompt, {
+          ...(gatewayResponse.data as AppIntent),
+          warnings: (gatewayResponse.data as AppIntent).warnings ?? [],
+        });
 
     const validation = validateIntentOutput(output);
 
@@ -34,6 +39,7 @@ export const intentExtractionStage: PipelineStage<string, AppIntent> = {
         completionTokens: gatewayResponse.usage.completionTokens,
         estimatedUsd: gatewayResponse.estimatedCostUsd,
       },
+      providerExecution: stageProviderExecutionFromGateway(gatewayResponse),
       ...(validation.errors.length > 0 ? { errors: validation.errors } : {}),
     };
   },

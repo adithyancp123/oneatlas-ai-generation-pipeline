@@ -1,5 +1,6 @@
 import type { AppSpec } from "@/types/domain";
 import type { ValidationError } from "@/types/job";
+import type { ProviderExecutionMeta } from "@/types/provider-execution";
 
 export type PipelineStageId =
   | "intentExtraction"
@@ -24,6 +25,8 @@ export interface PipelineStageResult<T = unknown> {
   durationMs: number;
   errors?: ValidationError[];
   usage?: PipelineStageUsage;
+  /** Optional reviewer-facing provider execution metadata for this stage. */
+  providerExecution?: ProviderExecutionMeta;
 }
 
 export interface PipelineError {

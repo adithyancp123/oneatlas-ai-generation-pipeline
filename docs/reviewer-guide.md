@@ -91,8 +91,76 @@ evaluation/run.ts                  # Regression suite
 | Mock fallback | Missing/invalid keys still succeed — check provider panel |
 | Integrations | Metadata + validation only; no live OAuth |
 
+---
+
+## What to intentionally try to break
+
+Use these prompts to stress transparency, validation, and repair. The system should stay stable (no uncaught exceptions, no hung jobs).
+
+### Vague prompts
+
+**Try:** `An app.` or `Build something useful.`
+
+| Expected result |
+|-----------------|
+| Job **completes** with a valid AppSpec |
+| **Assumptions** panel lists SaaS defaults (multi-tenant, auth, REST) |
+| **Warnings** empty or minimal |
+| No clarification modal (by design) |
+
+### Unsupported integrations
+
+**Try:** `Send Telegram + Discord webhook + SAP integration`
+
+| Expected result |
+|-----------------|
+| Job **completes** |
+| **Warnings** name each unsupported connector |
+| **Assumption** that unsupported integrations were skipped |
+| **Spec integrations** empty (no fake registry IDs) |
+| Amber status banner may note notices — open AppSpec **Warnings** section |
+
+### Conflicting / overscoped domains
+
+**Try:** `Build a CRM + ecommerce + school ERP + blockchain voting platform`
+
+| Expected result |
+|-----------------|
+| Job **completes** with a **single-domain** MVP (typically CRM entities) |
+| **Warnings** mention multiple domains detected |
+| **Assumptions** explain scope narrowing and MVP-first generation |
+| Output is coherent (entities, pages, APIs align) — not a mashup of four products |
+
+### Malformed output (repair path)
+
+Harder to trigger from the UI without API keys; the evaluation suite and repair engine cover:
+
+- missing `tenant_id`
+- invalid table names
+- broken relations
+- invalid integration/workflow actions
+
+| Expected result |
+|-----------------|
+| Validation errors surfaced (amber list in alerts) |
+| **Repair** stage runs; **repair log** shows strategy attempts (structural → field → consistency) |
+| Up to **3** repair rounds, then success or clean **failed** status |
+| See `src/lib/pipeline/repair/` and README [Failure recovery](../README.md#failure-recovery) |
+
+### Quick verification matrix
+
+| Attack vector | Pass criteria |
+|---------------|---------------|
+| Vague input | Valid AppSpec + assumptions |
+| Unsupported integrations | Warnings + no invented connectors |
+| Domain conflict | Warnings + narrowed scope + valid AppSpec |
+| Repair exhaustion | Failed job + errors + repair log (no infinite loop) |
+
 ## More documentation
 
+- [Final self-audit](final-self-audit.md) — requirement checklist + tradeoffs
+- [Adversarial results](adversarial-results.md) — PASS/FAIL evidence tables
+- [Repo health](repo-health.md) — lint / build / evaluate / adversarial gates
 - [Deployment](deployment.md) — Vercel
 - [Demo prompts](demo-prompts.md) — extended list + edge cases
 - [Demo script](demo-script.md) — 60s narrated walkthrough

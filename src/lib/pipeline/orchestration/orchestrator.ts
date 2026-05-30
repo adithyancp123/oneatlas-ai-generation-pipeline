@@ -12,6 +12,7 @@ import type { StageContext } from "@/lib/pipeline/stages/types";
 import type { AppIntent, AppSpec, DataSchema } from "@/types/domain";
 import type { GenerationJob, StageLatency, ValidationError } from "@/types/job";
 import type { PipelineStageId } from "@/types/pipeline";
+import type { ProviderExecutionMeta } from "@/types/provider-execution";
 import type {
   GenerationCompleteEvent,
   StageCompleteEvent,
@@ -72,6 +73,7 @@ export class PipelineOrchestrator {
     let appSpec: AppSpec | null = null;
     const latencies: StageLatency[] = [];
     let allErrors: ValidationError[] = [];
+    let latestRepairLog: GenerationJob["repairLog"] = job.repairLog ?? null;
 
     for (const stageId of PIPELINE_EXECUTION_ORDER) {
       this.store.updateJob(jobId, { currentStage: stageId });
@@ -107,6 +109,9 @@ export class PipelineOrchestrator {
         }
 
         this.recordStageCost(stageId, stageResult, costTracker);
+        if (stageResult.providerExecution) {
+          this.recordProviderExecution(jobId, stageId, stageResult.providerExecution);
+        }
 
         const stageEnd = new Date().toISOString();
         latencies.push({
@@ -125,13 +130,21 @@ export class PipelineOrchestrator {
             dataSchema,
             appSpec,
             stageResult.errors ?? [],
+            stageId,
             costTracker,
             latencies,
           );
           if (repaired.appSpec) {
             appSpec = repaired.appSpec;
             allErrors = repaired.remainingErrors;
-            this.emitStageComplete(jobId, stageId, stageResult.durationMs, appSpec);
+            latestRepairLog = repaired.repairLog ?? latestRepairLog;
+            this.emitStageComplete(
+              jobId,
+              stageId,
+              stageResult.durationMs,
+              appSpec,
+              stageResult.providerExecution ?? repaired.providerExecution,
+            );
             continue;
           }
 
@@ -139,7 +152,13 @@ export class PipelineOrchestrator {
           return this.finalizeJob(jobId, "failed", null, allErrors, repaired.repairLog, costTracker, latencies, jobStart);
         }
 
-        this.emitStageComplete(jobId, stageId, stageResult.durationMs, stageResult.output);
+        this.emitStageComplete(
+          jobId,
+          stageId,
+          stageResult.durationMs,
+          stageResult.output,
+          stageResult.providerExecution,
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : "Stage execution failed";
         allErrors.push({
@@ -154,7 +173,7 @@ export class PipelineOrchestrator {
     }
 
     if (appSpec) {
-      const validation = await this.validateFinalSpec(appSpec, allErrors);
+      const validation = await this.validateFinalSpec(appSpec, dataSchema, allErrors);
       if (!validation.valid && intent && dataSchema) {
         const repaired = await this.attemptRepair(
           jobId,
@@ -163,16 +182,29 @@ export class PipelineOrchestrator {
           dataSchema,
           appSpec,
           validation.errors,
+          "appSpecGeneration",
           costTracker,
           latencies,
         );
         appSpec = repaired.appSpec;
         allErrors = repaired.remainingErrors;
+        latestRepairLog = repaired.repairLog ?? latestRepairLog;
       }
     }
 
     const status = appSpec ? "completed" : "failed";
-    return this.finalizeJob(jobId, status, appSpec, allErrors, null, costTracker, latencies, jobStart);
+    const preservedRepairLog =
+      latestRepairLog ?? this.store.getJob(jobId)?.repairLog ?? null;
+    return this.finalizeJob(
+      jobId,
+      status,
+      appSpec,
+      allErrors,
+      preservedRepairLog,
+      costTracker,
+      latencies,
+      jobStart,
+    );
   }
 
   private recordStageCost(
@@ -188,6 +220,18 @@ export class PipelineOrchestrator {
     });
   }
 
+  private recordProviderExecution(
+    jobId: string,
+    stageId: PipelineStageId,
+    execution: ProviderExecutionMeta,
+  ): void {
+    const job = this.store.getJob(jobId);
+    const existing = job?.providerExecutions ?? [];
+    const withoutStage = existing.filter((entry) => entry.stageId !== stageId);
+    withoutStage.push({ stageId, ...execution });
+    this.store.updateJob(jobId, { providerExecutions: withoutStage });
+  }
+
   private async attemptRepair(
     jobId: string,
     prompt: string,
@@ -195,19 +239,27 @@ export class PipelineOrchestrator {
     dataSchema: DataSchema | null,
     draftSpec: AppSpec | null,
     errors: ValidationError[],
+    sourceStageId: PipelineStageId,
     costTracker: StageCostTracker,
     latencies: StageLatency[],
   ): Promise<{
     appSpec: AppSpec | null;
     remainingErrors: ValidationError[];
     repairLog: GenerationJob["repairLog"];
+    providerExecution?: ProviderExecutionMeta;
   }> {
     if (!intent || !dataSchema) {
       return { appSpec: null, remainingErrors: errors, repairLog: null };
     }
 
+    let repairProviderExecution: ProviderExecutionMeta | undefined;
+
     this.emitStageStart(jobId, "repair");
     const repairStart = new Date().toISOString();
+
+    const rawOutput = this.store.getStageOutput(jobId, sourceStageId);
+    const rawStageOutput = typeof rawOutput === "string" ? rawOutput : undefined;
+
     let lastResult = await runRepairEngine({
       jobId,
       prompt,
@@ -216,11 +268,15 @@ export class PipelineOrchestrator {
       draftSpec,
       validationErrors: errors,
       existingLog: this.store.getJob(jobId)?.repairLog ?? null,
+      repairAttempt: 1,
+      sourceStageId,
+      ...(rawStageOutput !== undefined ? { rawStageOutput } : {}),
     });
+    repairProviderExecution = lastResult.providerExecution ?? repairProviderExecution;
 
-    let attempts = 1;
-    while (!lastResult.repairLog.success && attempts < MAX_REPAIR_ATTEMPTS) {
-      attempts += 1;
+    let repairRound = 1;
+    while (!lastResult.repairLog.success && repairRound < MAX_REPAIR_ATTEMPTS) {
+      repairRound += 1;
       lastResult = await runRepairEngine({
         jobId,
         prompt,
@@ -229,7 +285,15 @@ export class PipelineOrchestrator {
         draftSpec: lastResult.appSpec,
         validationErrors: lastResult.remainingErrors,
         existingLog: lastResult.repairLog,
+        repairAttempt: repairRound,
+        sourceStageId,
+        ...(rawStageOutput !== undefined ? { rawStageOutput } : {}),
       });
+      repairProviderExecution = lastResult.providerExecution ?? repairProviderExecution;
+    }
+
+    if (repairProviderExecution) {
+      this.recordProviderExecution(jobId, "repair", repairProviderExecution);
     }
 
     void costTracker;
@@ -244,7 +308,13 @@ export class PipelineOrchestrator {
     this.store.updateJob(jobId, { repairLog: lastResult.repairLog });
 
     if (lastResult.appSpec) {
-      this.emitStageComplete(jobId, "repair", Date.now() - Date.parse(repairStart), lastResult.appSpec);
+      this.emitStageComplete(
+        jobId,
+        "repair",
+        Date.now() - Date.parse(repairStart),
+        lastResult.appSpec,
+        repairProviderExecution,
+      );
     } else {
       this.emitStageFailed(
         jobId,
@@ -259,15 +329,20 @@ export class PipelineOrchestrator {
       appSpec: lastResult.appSpec,
       remainingErrors: lastResult.remainingErrors,
       repairLog: lastResult.repairLog,
+      ...(repairProviderExecution !== undefined ? { providerExecution: repairProviderExecution } : {}),
     };
   }
 
   private async validateFinalSpec(
     appSpec: AppSpec,
+    canonicalDataSchema: DataSchema | null,
     existing: ValidationError[],
   ): Promise<{ valid: boolean; errors: ValidationError[] }> {
     const { validateAppSpecOutput } = await import("@/lib/pipeline/validators/stage-validator");
-    const result = validateAppSpecOutput(appSpec);
+    const result = validateAppSpecOutput(
+      appSpec,
+      canonicalDataSchema ? { canonicalDataSchema } : undefined,
+    );
     return {
       valid: result.valid,
       errors: [...existing, ...result.errors],
@@ -302,6 +377,7 @@ export class PipelineOrchestrator {
       appSpec,
       totalLatencyMs: Date.now() - jobStart,
       costUsd: cost.totalUsd,
+      ...(repairLog !== undefined && repairLog !== null ? { repairLog } : {}),
     };
     this.store.appendEvent(jobId, completeEvent);
 
@@ -324,6 +400,7 @@ export class PipelineOrchestrator {
     stage: PipelineStageId,
     latencyMs: number,
     partialOutput: unknown,
+    providerExecution?: ProviderExecutionMeta,
   ): void {
     const event: StageCompleteEvent = {
       type: "stage_complete",
@@ -332,6 +409,7 @@ export class PipelineOrchestrator {
       latencyMs,
       partialOutput,
       timestamp: new Date().toISOString(),
+      ...(providerExecution !== undefined ? { providerExecution } : {}),
     };
     this.store.appendEvent(jobId, event);
   }

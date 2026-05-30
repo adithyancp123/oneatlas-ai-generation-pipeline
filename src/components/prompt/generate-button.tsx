@@ -14,6 +14,7 @@ export function GenerateButton() {
       variant="primary"
       loading={isGenerating}
       disabled={isGenerating || prompt.trim().length === 0}
+      aria-label={isGenerating ? "Generating AppSpec" : "Generate AppSpec from prompt"}
       onClick={() => void generate()}
     >
       {isGenerating ? undefined : "Generate AppSpec"}

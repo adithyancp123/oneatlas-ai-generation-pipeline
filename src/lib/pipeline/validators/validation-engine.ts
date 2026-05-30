@@ -1,4 +1,13 @@
+import { getIntegrationAction } from "@/lib/integrations/registry/definitions";
+import { collectValidTriggerIds, parseWorkflowStepRef } from "@/lib/integrations/registry/helpers";
+import { validateIntegrationConfig } from "@/lib/integrations/payload-validation";
 import { INTEGRATION_REGISTRY } from "@/lib/integrations/registry";
+import {
+  buildEntityRefSets,
+  entityRefExists,
+  pageHasMatchingEndpoint,
+  resolveEntityByRef,
+} from "@/lib/pipeline/validators/entity-refs";
 import {
   appIntentSchema,
   appSpecSchema,
@@ -14,13 +23,167 @@ export interface ValidationEngineResult {
   errors: ValidationError[];
 }
 
+export interface ValidateAppSpecOptions {
+  /** schemaGeneration stage output — cross-stage entity/table alignment */
+  canonicalDataSchema?: DataSchema;
+}
+
+function mapZodIssuesToErrors(
+  issues: z.ZodIssue[],
+  stageId: PipelineStageId,
+): ValidationError[] {
+  return issues.map((issue) => {
+    const path = issue.path.join(".");
+    const leaf = issue.path[issue.path.length - 1];
+
+    if (issue.code === "invalid_string" && leaf === "tableName") {
+      return err(
+        "invalid_table_name",
+        "tableName must be snake_case",
+        path,
+        stageId,
+      );
+    }
+
+    return {
+      code: issue.code,
+      message: issue.message,
+      path,
+      stageId,
+    };
+  });
+}
+
 function zodErrors(error: z.ZodError, stageId: PipelineStageId): ValidationError[] {
-  return error.issues.map((issue) => ({
-    code: issue.code,
-    message: issue.message,
-    path: issue.path.join("."),
-    stageId,
+  return mapZodIssuesToErrors(error.issues, stageId);
+}
+
+function prefixValidationPaths(
+  errors: ValidationError[],
+  pathPrefix: string,
+): ValidationError[] {
+  if (!pathPrefix) return errors;
+  return errors.map((e) => ({
+    ...e,
+    path: e.path ? `${pathPrefix}.${e.path}` : pathPrefix,
   }));
+}
+
+function remapStageErrors(
+  errors: ValidationError[],
+  stageId: PipelineStageId,
+  pathPrefix?: string,
+): ValidationError[] {
+  const prefixed = pathPrefix ? prefixValidationPaths(errors, pathPrefix) : errors;
+  return prefixed.map((e) => ({ ...e, stageId }));
+}
+
+function dedupeErrors(errors: ValidationError[]): ValidationError[] {
+  const seen = new Set<string>();
+  return errors.filter((e) => {
+    const key = `${e.code}|${e.path}|${e.message}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function extractPartialDataSchema(output: unknown): unknown {
+  if (typeof output !== "object" || output === null) return null;
+  const candidate = (output as { dataSchema?: unknown }).dataSchema;
+  return candidate ?? null;
+}
+
+/** Canonical data-schema rules shared by schemaGeneration and appSpecGeneration. */
+export function validateDataSchemaSemantics(
+  data: DataSchema,
+  stageId: PipelineStageId,
+  pathPrefix = "",
+): ValidationError[] {
+  const errors: ValidationError[] = [];
+  const tableNames = new Set<string>();
+  const { names, tables } = buildEntityRefSets(data);
+  const prefix = pathPrefix ? `${pathPrefix}.` : "";
+
+  for (const entity of data.entities) {
+    if (!entity.fields.some((f) => f.name === "tenant_id")) {
+      errors.push(
+        err(
+          "missing_tenant_id",
+          `Entity ${entity.name} missing tenant_id`,
+          `${prefix}${entity.tableName}.fields`,
+          stageId,
+        ),
+      );
+    }
+
+    if (!/^[a-z][a-z0-9_]*$/.test(entity.tableName)) {
+      errors.push(
+        err(
+          "invalid_table_name",
+          "tableName must be snake_case",
+          `${prefix}${entity.tableName}`,
+          stageId,
+        ),
+      );
+    }
+
+    if (tableNames.has(entity.tableName)) {
+      errors.push(
+        err(
+          "duplicate_table_name",
+          `Duplicate table ${entity.tableName}`,
+          `${prefix}${entity.tableName}`,
+          stageId,
+        ),
+      );
+    }
+    tableNames.add(entity.tableName);
+  }
+
+  for (const entity of data.entities) {
+    for (const rel of entity.relations) {
+      if (!entityRefExists(rel.fromEntity, names, tables)) {
+        errors.push(
+          err(
+            "relation_invalid_from",
+            `Relation ${rel.name} fromEntity ${rel.fromEntity} not found`,
+            `${prefix}${entity.tableName}.relations.${rel.name}`,
+            stageId,
+          ),
+        );
+      }
+      if (!entityRefExists(rel.toEntity, names, tables)) {
+        errors.push(
+          err(
+            "relation_invalid_to",
+            `Relation ${rel.name} toEntity ${rel.toEntity} not found`,
+            `${prefix}${entity.tableName}.relations.${rel.name}`,
+            stageId,
+          ),
+        );
+      }
+
+      const reverseExists = data.entities
+        .find((e) => e.tableName === rel.toEntity || e.name === rel.toEntity)
+        ?.relations.some(
+          (r) => r.toEntity === entity.tableName || r.toEntity === entity.name,
+        );
+
+      if (!reverseExists) {
+        errors.push(
+          err(
+            "relation_not_bidirectional",
+            `Relation ${rel.name} from ${entity.tableName} lacks reverse edge`,
+            `${prefix}${entity.tableName}.relations.${rel.name}`,
+            stageId,
+          ),
+        );
+      }
+    }
+  }
+
+  return errors;
 }
 
 function err(
@@ -44,85 +207,86 @@ export function validateDataSchema(output: unknown): ValidationEngineResult {
     return { valid: false, errors: zodErrors(parsed.error, "schemaGeneration") };
   }
 
-  const errors: ValidationError[] = [];
-  const tableNames = new Set<string>();
+  const errors = validateDataSchemaSemantics(parsed.data, "schemaGeneration");
+  return { valid: errors.length === 0, errors };
+}
 
-  for (const entity of parsed.data.entities) {
-    if (!entity.fields.some((f) => f.name === "tenant_id")) {
+export function validateAppSpec(
+  output: unknown,
+  options?: ValidateAppSpecOptions,
+): ValidationEngineResult {
+  const zodResult = appSpecSchema.safeParse(output);
+  if (!zodResult.success) {
+    const errors = zodErrors(zodResult.error, "appSpecGeneration");
+    const partialDataSchema = extractPartialDataSchema(output);
+    if (partialDataSchema) {
+      const nested = validateDataSchema(partialDataSchema);
       errors.push(
-        err(
-          "missing_tenant_id",
-          `Entity ${entity.name} missing tenant_id`,
-          `${entity.tableName}.fields`,
-          "schemaGeneration",
-        ),
+        ...remapStageErrors(nested.errors, "appSpecGeneration", "dataSchema"),
       );
     }
-
-    if (!/^[a-z][a-z0-9_]*$/.test(entity.tableName)) {
-      errors.push(
-        err(
-          "invalid_table_name",
-          "tableName must be snake_case",
-          entity.tableName,
-          "schemaGeneration",
-        ),
-      );
-    }
-
-    if (tableNames.has(entity.tableName)) {
-      errors.push(
-        err(
-          "duplicate_table_name",
-          `Duplicate table ${entity.tableName}`,
-          entity.tableName,
-          "schemaGeneration",
-        ),
-      );
-    }
-    tableNames.add(entity.tableName);
+    return { valid: false, errors: dedupeErrors(errors) };
   }
 
-  const relationPairs = new Map<string, Set<string>>();
+  const spec = zodResult.data as AppSpec;
+  const errors: ValidationError[] = [
+    ...validateDataSchemaSemantics(spec.dataSchema, "appSpecGeneration", "dataSchema"),
+  ];
 
-  for (const entity of parsed.data.entities) {
-    for (const rel of entity.relations) {
-      const forward = `${entity.tableName}->${rel.toEntity}:${rel.name}`;
-      if (!relationPairs.has(rel.toEntity)) relationPairs.set(rel.toEntity, new Set());
-      relationPairs.get(rel.toEntity)?.add(forward);
+  const entityNames = new Set(spec.dataSchema.entities.map((e) => e.name));
+  const entityNameToTable = new Map(spec.dataSchema.entities.map((e) => [e.name, e.tableName]));
+  const registryIds = new Set(INTEGRATION_REGISTRY.map((i) => i.id));
+  const roleSet = new Set(spec.auth.roles);
 
-      const reverseExists = parsed.data.entities
-        .find((e) => e.tableName === rel.toEntity)
-        ?.relations.some((r) => r.toEntity === entity.tableName);
+  if (options?.canonicalDataSchema) {
+    const canonicalTables = new Set(
+      options.canonicalDataSchema.entities.map((e) => e.tableName),
+    );
+    const canonicalNames = new Set(options.canonicalDataSchema.entities.map((e) => e.name));
 
-      if (!reverseExists) {
+    for (const entity of spec.dataSchema.entities) {
+      if (!canonicalTables.has(entity.tableName) || !canonicalNames.has(entity.name)) {
         errors.push(
           err(
-            "relation_not_bidirectional",
-            `Relation ${rel.name} from ${entity.tableName} lacks reverse edge`,
-            `${entity.tableName}.relations.${rel.name}`,
-            "schemaGeneration",
+            "dataschema_stage_mismatch",
+            `AppSpec entity ${entity.name} (${entity.tableName}) not in schemaGeneration output`,
+            `dataSchema.${entity.tableName}`,
+            "appSpecGeneration",
+          ),
+        );
+      }
+    }
+
+    for (const entity of options.canonicalDataSchema.entities) {
+      if (
+        !spec.dataSchema.entities.some(
+          (e) => e.tableName === entity.tableName && e.name === entity.name,
+        )
+      ) {
+        errors.push(
+          err(
+            "dataschema_stage_mismatch",
+            `schemaGeneration entity ${entity.name} missing from AppSpec.dataSchema`,
+            `dataSchema.${entity.tableName}`,
+            "appSpecGeneration",
           ),
         );
       }
     }
   }
 
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateAppSpec(output: unknown): ValidationEngineResult {
-  const zodResult = appSpecSchema.safeParse(output);
-  if (!zodResult.success) {
-    return { valid: false, errors: zodErrors(zodResult.error, "appSpecGeneration") };
+  for (const endpoint of spec.apiEndpoints) {
+    if (endpoint.boundEntity && !entityNames.has(endpoint.boundEntity)) {
+      errors.push(
+        err(
+          "api_invalid_bound_entity",
+          `API ${endpoint.id} boundEntity ${endpoint.boundEntity} unknown`,
+          `apiEndpoints.${endpoint.id}.boundEntity`,
+          "appSpecGeneration",
+        ),
+      );
+    }
   }
-
-  const spec = zodResult.data as AppSpec;
-  const errors: ValidationError[] = [];
-
-  const entityNames = new Set(spec.dataSchema.entities.map((e) => e.name));
-  const entityTables = new Set(spec.dataSchema.entities.map((e) => e.tableName));
-  const registryIds = new Set(INTEGRATION_REGISTRY.map((i) => i.id));
 
   for (const page of spec.pages) {
     for (const entityRef of page.entities) {
@@ -140,19 +304,29 @@ export function validateAppSpec(output: unknown): ValidationEngineResult {
 
     const hasEndpoint =
       page.route === "/dashboard" ||
-      page.entities.some((entityName) => {
-        const table = spec.dataSchema.entities.find((e) => e.name === entityName)?.tableName;
-        return (
-          table !== undefined &&
-          spec.apiEndpoints.some((ep) => ep.path.includes(table))
-        );
-      });
+      pageHasMatchingEndpoint(page.entities, spec.apiEndpoints, entityNameToTable);
 
     if (!hasEndpoint) {
       errors.push(
         err(
           "page_without_endpoint",
           `Page ${page.route} has no matching API endpoint`,
+          `pages.${page.id}`,
+          "appSpecGeneration",
+        ),
+      );
+    } else if (
+      page.route !== "/dashboard" &&
+      page.entities.length > 0 &&
+      spec.apiEndpoints.some((ep) => ep.boundEntity) &&
+      !page.entities.some((entityName) =>
+        spec.apiEndpoints.some((ep) => ep.boundEntity === entityName),
+      )
+    ) {
+      errors.push(
+        err(
+          "page_api_bound_mismatch",
+          `Page ${page.route} has no api.boundEntity for its entities`,
           `pages.${page.id}`,
           "appSpecGeneration",
         ),
@@ -198,8 +372,114 @@ export function validateAppSpec(output: unknown): ValidationEngineResult {
         ),
       );
     }
+
+    const actionDef = getIntegrationAction(hook.integrationId, hook.action);
+    if (actionDef && Object.keys(hook.config).length > 0) {
+      const configResult = validateIntegrationConfig(hook.config, actionDef.inputSchema);
+      if (!configResult.valid) {
+        for (const message of configResult.errors) {
+          errors.push(
+            err(
+              "integration_invalid_config",
+              message,
+              `integrations.${hook.integrationId}.config`,
+              "appSpecGeneration",
+            ),
+          );
+        }
+      }
+    }
   }
 
+  const integrationIds = spec.integrations.map((h) => h.integrationId);
+  const validTriggers = collectValidTriggerIds(integrationIds);
+  const validActionRefs = new Set(
+    integrationIds.flatMap((id) => {
+      const def = INTEGRATION_REGISTRY.find((i) => i.id === id);
+      return def?.actions.flatMap((a) => [a.id, `${id}:${a.id}`]) ?? [];
+    }),
+  );
+
+  for (const wf of spec.workflows) {
+    if (integrationIds.length > 0 && !validTriggers.has(wf.trigger)) {
+      errors.push(
+        err(
+          "workflow_invalid_trigger",
+          `Workflow trigger "${wf.trigger}" is not registered for used integrations`,
+          `workflows.${wf.id}.trigger`,
+          "appSpecGeneration",
+        ),
+      );
+    }
+
+    if (wf.triggerMeta?.entity && !entityNames.has(wf.triggerMeta.entity)) {
+      const resolved = resolveEntityByRef(wf.triggerMeta.entity, spec.dataSchema.entities);
+      if (!resolved) {
+        errors.push(
+          err(
+            "workflow_invalid_trigger_entity",
+            `Workflow triggerMeta.entity ${wf.triggerMeta.entity} unknown`,
+            `workflows.${wf.id}.triggerMeta.entity`,
+            "appSpecGeneration",
+          ),
+        );
+      }
+    }
+
+    for (const step of wf.steps) {
+      const ref = parseWorkflowStepRef(step, integrationIds);
+      if (integrationIds.length > 0 && !ref) {
+        errors.push(
+          err(
+            "workflow_invalid_action",
+            `Workflow step "${step}" does not reference a valid integration action`,
+            `workflows.${wf.id}.steps`,
+            "appSpecGeneration",
+          ),
+        );
+        continue;
+      }
+
+      if (ref && !validActionRefs.has(`${ref.integrationId}:${ref.actionId}`)) {
+        errors.push(
+          err(
+            "workflow_invalid_action",
+            `Workflow step references unknown action ${ref.actionId} for ${ref.integrationId}`,
+            `workflows.${wf.id}.steps`,
+            "appSpecGeneration",
+          ),
+        );
+      }
+    }
+
+    if (wf.stepMeta) {
+      wf.stepMeta.forEach((meta, index) => {
+        if (meta.integrationId && !registryIds.has(meta.integrationId)) {
+          errors.push(
+            err(
+              "workflow_invalid_step_integration",
+              `stepMeta integration ${meta.integrationId} not in registry`,
+              `workflows.${wf.id}.stepMeta.${index}`,
+              "appSpecGeneration",
+            ),
+          );
+        }
+        if (meta.integrationId && meta.actionId) {
+          const action = getIntegrationAction(meta.integrationId, meta.actionId);
+          if (!action) {
+            errors.push(
+              err(
+                "workflow_invalid_step_action",
+                `stepMeta action ${meta.actionId} invalid for ${meta.integrationId}`,
+                `workflows.${wf.id}.stepMeta.${index}`,
+                "appSpecGeneration",
+              ),
+            );
+          }
+        }
+      });
+    }
+  }
 
   for (const role of spec.auth.roles) {
     if (role.trim().length === 0) {
@@ -220,25 +500,38 @@ export function validateAppSpec(output: unknown): ValidationEngineResult {
     );
   }
 
-  for (const entity of spec.dataSchema.entities) {
-    if (!entityTables.has(entity.tableName)) {
-      errors.push(
-        err(
-          "entity_table_mismatch",
-          `Entity table ${entity.tableName} inconsistent`,
-          `dataSchema.${entity.tableName}`,
-          "appSpecGeneration",
-        ),
-      );
+  if (spec.auth.permissions) {
+    for (const perm of spec.auth.permissions) {
+      if (!entityNames.has(perm.entity)) {
+        errors.push(
+          err(
+            "auth_permission_unknown_entity",
+            `Permission references unknown entity ${perm.entity}`,
+            `auth.permissions.${perm.entity}`,
+            "appSpecGeneration",
+          ),
+        );
+      }
+      if (!roleSet.has(perm.role)) {
+        errors.push(
+          err(
+            "auth_permission_unknown_role",
+            `Permission references unknown role ${perm.role}`,
+            `auth.permissions.${perm.role}`,
+            "appSpecGeneration",
+          ),
+        );
+      }
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  return { valid: errors.length === 0, errors: dedupeErrors(errors) };
 }
 
 export function validateStageOutput(
   stageId: PipelineStageId,
   output: unknown,
+  options?: ValidateAppSpecOptions,
 ): ValidationEngineResult {
   switch (stageId) {
     case "intentExtraction":
@@ -246,9 +539,9 @@ export function validateStageOutput(
     case "schemaGeneration":
       return validateDataSchema(output);
     case "appSpecGeneration":
-      return validateAppSpec(output);
+      return validateAppSpec(output, options);
     case "repair":
-      return validateAppSpec(output);
+      return validateAppSpec(output, options);
     default:
       return { valid: true, errors: [] };
   }
@@ -262,7 +555,9 @@ export function validateFullPipeline(
   const allErrors: ValidationError[] = [];
   const intentResult = validateIntent(intent);
   const schemaResult = validateDataSchema(dataSchema);
-  const specResult = validateAppSpec(appSpec);
+  const specResult = validateAppSpec(appSpec, {
+    canonicalDataSchema: dataSchema as DataSchema,
+  });
 
   allErrors.push(...intentResult.errors, ...schemaResult.errors, ...specResult.errors);
 

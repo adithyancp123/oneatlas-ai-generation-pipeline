@@ -8,6 +8,7 @@ Use this before opening the PR or sharing the repo link.
 - [x] `npm run lint` — zero warnings
 - [x] `npm run build` — production build succeeds
 - [x] `npm run evaluate` — 12/12 prompts pass (see `evaluation/summary.md`)
+- [x] `npm run test:adversarial` — 3/3 repair cases pass (see `docs/adversarial-results.md`)
 
 ## Documentation
 
@@ -17,8 +18,11 @@ Use this before opening the PR or sharing the repo link.
 - [x] `docs/deployment.md` — Vercel deploy + troubleshooting
 - [x] `docs/demo-script.md` — 60s walkthrough
 - [x] `docs/demo-prompts.md` — demo + edge prompts
-- [x] `docs/final-audit.md` — audit log
-- [x] `docs/adversarial-tests.md` — adversarial outcomes
+- [x] `docs/final-audit.md` — engineering polish audit log
+- [x] `docs/final-self-audit.md` — requirement map + reviewer confidence
+- [x] `docs/adversarial-results.md` — adversarial PASS/FAIL evidence
+- [x] `docs/repo-health.md` — lint/build/evaluate/adversarial gate report
+- [x] `docs/adversarial-tests.md` — adversarial test log (prior pass)
 - [x] `vercel.json` — framework + build commands
 
 ## Repository hygiene
@@ -57,4 +61,4 @@ npm run dev
 
 ---
 
-**Last verified:** 2026-05-29 — lint ✅, build ✅, evaluate **12/12** ✅.
+**Last verified:** 2026-05-30 — lint ✅, build ✅, evaluate **12/12** ✅, adversarial **3/3** ✅ (see `docs/repo-health.md`).

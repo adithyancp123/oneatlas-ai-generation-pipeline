@@ -1,5 +1,5 @@
 {
-  "ranAt": "2026-05-29T18:36:19.994Z",
+  "ranAt": "2026-05-30T10:00:26.428Z",
   "total": 12,
   "succeeded": 12,
   "failed": 0,
@@ -12,8 +12,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1933,
-      "tokenCostUsd": 0.01161,
+      "latencyMs": 3240,
+      "tokenCostUsd": 0.011846,
       "integrationsDetected": []
     },
     {
@@ -23,8 +23,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1748,
-      "tokenCostUsd": 0.00737,
+      "latencyMs": 2920,
+      "tokenCostUsd": 0.007842,
       "integrationsDetected": [
         "slack"
       ]
@@ -36,11 +36,9 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1586,
-      "tokenCostUsd": 0.007224,
-      "integrationsDetected": [
-        "gmail"
-      ]
+      "latencyMs": 3043,
+      "tokenCostUsd": 0.007449,
+      "integrationsDetected": []
     },
     {
       "prompt": "Build an HR tool where leave requests trigger Slack approval workflows.",
@@ -49,8 +47,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1734,
-      "tokenCostUsd": 0.007382,
+      "latencyMs": 3104,
+      "tokenCostUsd": 0.007854,
       "integrationsDetected": [
         "slack"
       ]
@@ -62,11 +60,11 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1682,
-      "tokenCostUsd": 0.009935,
+      "latencyMs": 3097,
+      "tokenCostUsd": 0.010497,
       "integrationsDetected": [
-        "stripe",
-        "gmail"
+        "gmail",
+        "stripe"
       ]
     },
     {
@@ -76,11 +74,9 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1483,
-      "tokenCostUsd": 0.007314,
-      "integrationsDetected": [
-        "whatsapp-twilio"
-      ]
+      "latencyMs": 3252,
+      "tokenCostUsd": 0.007472,
+      "integrationsDetected": []
     },
     {
       "prompt": "Project tracker integrated with Jira issues and Google Sheets exports.",
@@ -89,8 +85,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1740,
-      "tokenCostUsd": 0.007269,
+      "latencyMs": 3056,
+      "tokenCostUsd": 0.007742,
       "integrationsDetected": [
         "jira"
       ]
@@ -102,8 +98,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1759,
-      "tokenCostUsd": 0.006909,
+      "latencyMs": 3140,
+      "tokenCostUsd": 0.007348,
       "integrationsDetected": []
     },
     {
@@ -113,8 +109,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1834,
-      "tokenCostUsd": 0.006964,
+      "latencyMs": 2981,
+      "tokenCostUsd": 0.007178,
       "integrationsDetected": []
     },
     {
@@ -124,8 +120,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1960,
-      "tokenCostUsd": 0.007673,
+      "latencyMs": 3012,
+      "tokenCostUsd": 0.010201,
       "integrationsDetected": [
         "stripe"
       ]
@@ -137,8 +133,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1794,
-      "tokenCostUsd": 0.011459,
+      "latencyMs": 3021,
+      "tokenCostUsd": 0.011684,
       "integrationsDetected": []
     },
     {
@@ -148,8 +144,8 @@
       "failedStage": null,
       "repairStrategy": null,
       "retryCount": 0,
-      "latencyMs": 1730,
-      "tokenCostUsd": 0.006942,
+      "latencyMs": 2955,
+      "tokenCostUsd": 0.007696,
       "integrationsDetected": []
     }
   ]

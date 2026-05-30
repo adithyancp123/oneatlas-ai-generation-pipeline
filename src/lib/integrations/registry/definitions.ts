@@ -1,6 +1,53 @@
 import type { IntegrationDefinition } from "@/types/integrations";
+import {
+  GMAIL_SCHEMAS,
+  JIRA_SCHEMAS,
+  SLACK_SCHEMAS,
+  STRIPE_SCHEMAS,
+  WHATSAPP_SCHEMAS,
+} from "@/lib/integrations/registry/schema-shapes";
 
-const payload = (id: string) => `integration.${id}.payload.v1`;
+function buildTriggers<T extends Record<string, { inputSchema: object; outputSchema: object; payloadSchemaId: string }>>(
+  schemas: T,
+  labels: Record<keyof T, { name: string; description: string }>,
+): IntegrationDefinition["triggers"] {
+  return (Object.keys(schemas) as (keyof T)[]).map((id) => {
+    const shape = schemas[id];
+    const meta = labels[id];
+    if (!shape || !meta) {
+      throw new Error(`Missing schema or label for trigger ${String(id)}`);
+    }
+    return {
+      id: id as string,
+      name: meta.name,
+      description: meta.description,
+      payloadSchemaId: shape.payloadSchemaId,
+      inputSchema: { ...shape.inputSchema },
+      outputSchema: { ...shape.outputSchema },
+    };
+  });
+}
+
+function buildActions<T extends Record<string, { inputSchema: object; outputSchema: object; payloadSchemaId: string }>>(
+  schemas: T,
+  labels: Record<keyof T, { name: string; description: string }>,
+): IntegrationDefinition["actions"] {
+  return (Object.keys(schemas) as (keyof T)[]).map((id) => {
+    const shape = schemas[id];
+    const meta = labels[id];
+    if (!shape || !meta) {
+      throw new Error(`Missing schema or label for trigger ${String(id)}`);
+    }
+    return {
+      id: id as string,
+      name: meta.name,
+      description: meta.description,
+      payloadSchemaId: shape.payloadSchemaId,
+      inputSchema: { ...shape.inputSchema },
+      outputSchema: { ...shape.outputSchema },
+    };
+  });
+}
 
 export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   {
@@ -9,34 +56,26 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description: "Team messaging and notifications",
     authType: "oauth2",
     requiredEnvKeys: ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_SIGNING_SECRET"],
-    triggers: [
-      {
-        id: "message.posted",
+    triggers: buildTriggers(SLACK_SCHEMAS.triggers, {
+      "message.posted": {
         name: "Message Posted",
         description: "Fires when a message is posted to a channel",
-        payloadSchemaId: payload("slack.message.posted"),
       },
-      {
-        id: "reaction.added",
+      "reaction.added": {
         name: "Reaction Added",
         description: "Fires when a reaction is added to a message",
-        payloadSchemaId: payload("slack.reaction.added"),
       },
-    ],
-    actions: [
-      {
-        id: "message.send",
+    }),
+    actions: buildActions(SLACK_SCHEMAS.actions, {
+      "message.send": {
         name: "Send Message",
         description: "Post a message to a Slack channel",
-        payloadSchemaId: payload("slack.message.send"),
       },
-      {
-        id: "channel.create",
+      "channel.create": {
         name: "Create Channel",
         description: "Create a new Slack channel",
-        payloadSchemaId: payload("slack.channel.create"),
       },
-    ],
+    }),
   },
   {
     id: "whatsapp-twilio",
@@ -44,22 +83,18 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description: "WhatsApp messaging via Twilio",
     authType: "api_key",
     requiredEnvKeys: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_WHATSAPP_FROM"],
-    triggers: [
-      {
-        id: "message.received",
+    triggers: buildTriggers(WHATSAPP_SCHEMAS.triggers, {
+      "message.received": {
         name: "Message Received",
         description: "Inbound WhatsApp message",
-        payloadSchemaId: payload("whatsapp.message.received"),
       },
-    ],
-    actions: [
-      {
-        id: "message.send",
+    }),
+    actions: buildActions(WHATSAPP_SCHEMAS.actions, {
+      "message.send": {
         name: "Send Message",
         description: "Send an outbound WhatsApp message",
-        payloadSchemaId: payload("whatsapp.message.send"),
       },
-    ],
+    }),
   },
   {
     id: "gmail",
@@ -67,22 +102,18 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description: "Email send and receive via Google APIs",
     authType: "oauth2",
     requiredEnvKeys: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
-    triggers: [
-      {
-        id: "email.received",
+    triggers: buildTriggers(GMAIL_SCHEMAS.triggers, {
+      "email.received": {
         name: "Email Received",
         description: "New email in inbox",
-        payloadSchemaId: payload("gmail.email.received"),
       },
-    ],
-    actions: [
-      {
-        id: "email.send",
+    }),
+    actions: buildActions(GMAIL_SCHEMAS.actions, {
+      "email.send": {
         name: "Send Email",
         description: "Send an email message",
-        payloadSchemaId: payload("gmail.email.send"),
       },
-    ],
+    }),
   },
   {
     id: "stripe",
@@ -90,34 +121,26 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description: "Payment processing and billing events",
     authType: "api_key",
     requiredEnvKeys: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
-    triggers: [
-      {
-        id: "payment.succeeded",
+    triggers: buildTriggers(STRIPE_SCHEMAS.triggers, {
+      "payment.succeeded": {
         name: "Payment Succeeded",
         description: "Payment completed successfully",
-        payloadSchemaId: payload("stripe.payment.succeeded"),
       },
-      {
-        id: "subscription.updated",
+      "subscription.updated": {
         name: "Subscription Updated",
         description: "Subscription status changed",
-        payloadSchemaId: payload("stripe.subscription.updated"),
       },
-    ],
-    actions: [
-      {
-        id: "payment.create",
+    }),
+    actions: buildActions(STRIPE_SCHEMAS.actions, {
+      "payment.create": {
         name: "Create Payment",
         description: "Create a payment intent",
-        payloadSchemaId: payload("stripe.payment.create"),
       },
-      {
-        id: "customer.create",
+      "customer.create": {
         name: "Create Customer",
         description: "Create a Stripe customer",
-        payloadSchemaId: payload("stripe.customer.create"),
       },
-    ],
+    }),
   },
   {
     id: "jira",
@@ -125,37 +148,43 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     description: "Issue tracking and project management",
     authType: "api_key",
     requiredEnvKeys: ["JIRA_BASE_URL", "JIRA_API_TOKEN", "JIRA_EMAIL"],
-    triggers: [
-      {
-        id: "issue.created",
+    triggers: buildTriggers(JIRA_SCHEMAS.triggers, {
+      "issue.created": {
         name: "Issue Created",
         description: "New Jira issue created",
-        payloadSchemaId: payload("jira.issue.created"),
       },
-      {
-        id: "issue.updated",
+      "issue.updated": {
         name: "Issue Updated",
         description: "Existing issue updated",
-        payloadSchemaId: payload("jira.issue.updated"),
       },
-    ],
-    actions: [
-      {
-        id: "issue.create",
+    }),
+    actions: buildActions(JIRA_SCHEMAS.actions, {
+      "issue.create": {
         name: "Create Issue",
         description: "Create a new Jira issue",
-        payloadSchemaId: payload("jira.issue.create"),
       },
-      {
-        id: "comment.add",
+      "comment.add": {
         name: "Add Comment",
         description: "Add a comment to an issue",
-        payloadSchemaId: payload("jira.comment.add"),
       },
-    ],
+    }),
   },
 ];
 
 export function getIntegrationById(id: string): IntegrationDefinition | undefined {
   return INTEGRATION_REGISTRY.find((entry) => entry.id === id);
+}
+
+export function getIntegrationAction(
+  integrationId: string,
+  actionId: string,
+): IntegrationDefinition["actions"][number] | undefined {
+  return getIntegrationById(integrationId)?.actions.find((a) => a.id === actionId);
+}
+
+export function getIntegrationTrigger(
+  integrationId: string,
+  triggerId: string,
+): IntegrationDefinition["triggers"][number] | undefined {
+  return getIntegrationById(integrationId)?.triggers.find((t) => t.id === triggerId);
 }

@@ -12,16 +12,14 @@ export default function HomePage() {
   return (
     <main className="page-container">
       <header className="page-header">
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="badge badge-muted">AI-native platform</span>
           <span className="hidden h-1 w-1 rounded-full bg-zinc-600 sm:inline" aria-hidden />
-          <span className="text-xs text-zinc-500">Multi-stage pipeline</span>
+          <span className="page-eyebrow">Multi-stage pipeline</span>
         </div>
-        <div className="space-y-2 pt-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50 sm:text-[1.75rem] sm:leading-tight">
-            {APP_NAME}
-          </h1>
-          <p className="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-[15px] sm:leading-relaxed">
+        <div className="space-y-1.5 pt-0.5">
+          <h1 className="page-title">{APP_NAME}</h1>
+          <p className="page-lead">
             Natural language in, validated machine-readable AppSpec out. Config-driven routing,
             repair engine, and live stage progress.
           </p>
@@ -38,7 +36,9 @@ export default function HomePage() {
           <Card>
             <CardHeader>
               <CardTitle>Prompt</CardTitle>
-              <CardDescription>Describe the application you want to build</CardDescription>
+              <CardDescription>
+                Plain-language product description — the pipeline compiles it into AppSpec.
+              </CardDescription>
             </CardHeader>
             <PromptInput />
             <CardFooter>
@@ -49,22 +49,24 @@ export default function HomePage() {
           <Card>
             <CardHeader>
               <CardTitle>Pipeline</CardTitle>
-              <CardDescription>Stage progress and timing via SSE</CardDescription>
+              <CardDescription>Live stage status, provider mode, and per-stage timing</CardDescription>
             </CardHeader>
             <PipelineStatus />
           </Card>
 
-          <JobSummary />
-          <CostPanel />
-          <ProviderPanel />
+          <div className="dashboard-meta-stack">
+            <JobSummary />
+            <CostPanel />
+            <ProviderPanel />
+          </div>
         </section>
 
-        <section className="dashboard-col" aria-label="Output and integrations">
+        <section className="dashboard-col dashboard-col-output" aria-label="Output and integrations">
           <AppSpecViewer />
-          <Card>
+          <Card compact>
             <CardHeader>
               <CardTitle>Integrations</CardTitle>
-              <CardDescription>Available connectors in the registry</CardDescription>
+              <CardDescription>Registry connectors available for workflow hooks</CardDescription>
             </CardHeader>
             <IntegrationList />
           </Card>

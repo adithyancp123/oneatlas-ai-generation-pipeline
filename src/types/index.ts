@@ -5,12 +5,14 @@ export type {
   TokenUsage,
 } from "@/lib/ai/gateway";
 export type {
+  AmbiguityLevel,
   ApiEndpoint,
   AppIntent,
   AppSpec,
   AppType,
   AuthRules,
   DataSchema,
+  EntityPermission,
   EntitySchema,
   ExtractedEntity,
   FieldSchema,
@@ -18,7 +20,10 @@ export type {
   IntegrationHook,
   PageSpec,
   RelationSchema,
+  SkippedIntegration,
+  WorkflowStepMeta,
   WorkflowStub,
+  WorkflowTriggerMeta,
 } from "@/types/domain";
 export type {
   CostBreakdown,
@@ -35,7 +40,10 @@ export type {
   IntegrationAuthType,
   IntegrationConnection,
   IntegrationDefinition,
+  IntegrationExecutionResult,
   IntegrationTrigger,
+  PayloadFieldType,
+  PayloadShape,
 } from "@/types/integrations";
 export type {
   GenerateRequest,
@@ -47,6 +55,11 @@ export type {
   PipelineStageResult,
   PipelineStageUsage,
 } from "@/types/pipeline";
+export type {
+  ProviderExecutionMeta,
+  ProviderExecutionMode,
+  StageProviderExecution,
+} from "@/types/provider-execution";
 export type {
   GenerationCompleteEvent,
   PipelineSSEEvent,

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { ProviderExecutionMeta } from "@/types/provider-execution";
 import type { PipelineStageId } from "@/types/pipeline";
 
 export type ProviderId =
@@ -48,6 +49,8 @@ export interface AIGatewayResponse<T = string> {
   estimatedCostUsd: number;
   latencyMs: number;
   mock: boolean;
+  /** Reviewer-facing execution mode (live API vs mock / SDK fallback). */
+  execution?: ProviderExecutionMeta;
   metadata?: Record<string, string>;
 }
 

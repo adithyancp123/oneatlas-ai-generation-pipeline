@@ -26,22 +26,29 @@ export function IntegrationList() {
 
   if (integrations.length === 0) {
     return (
-      <EmptyState title="Loading integrations" description="Fetching connector registry…" />
+      <EmptyState
+        compact
+        title="Loading integration registry"
+        description="Fetching supported connectors, triggers, and actions."
+        successHint="Success: connector cards with auth type and capability counts."
+      />
     );
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="flex flex-col gap-1.5">
       {integrations.map((integration) => (
         <li key={integration.id} className="list-item-card">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-zinc-100">{integration.displayName}</p>
-              <p className="mt-1 text-xs leading-relaxed text-zinc-500">{integration.description}</p>
+              <p className="text-sm font-medium text-break text-zinc-100">{integration.displayName}</p>
+              <p className="mt-0.5 text-xs leading-snug text-break text-zinc-500">
+                {integration.description}
+              </p>
             </div>
             <span className="badge shrink-0 capitalize">{integration.authType.replace("_", " ")}</span>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="badge badge-muted normal-case">
               {integration.triggers.length} triggers
             </span>

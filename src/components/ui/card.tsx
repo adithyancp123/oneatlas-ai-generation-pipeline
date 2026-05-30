@@ -4,11 +4,17 @@ import { cn } from "@/lib/utils";
 export function Card({
   className,
   interactive = true,
+  compact = false,
   ...props
-}: HTMLAttributes<HTMLDivElement> & { interactive?: boolean }) {
+}: HTMLAttributes<HTMLDivElement> & { interactive?: boolean; compact?: boolean }) {
   return (
     <div
-      className={cn("card-base", interactive && "card-interactive", className)}
+      className={cn(
+        "card-base",
+        compact && "card-compact",
+        interactive && "card-interactive",
+        className,
+      )}
       {...props}
     />
   );

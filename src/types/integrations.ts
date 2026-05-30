@@ -5,11 +5,18 @@ export type IntegrationAuthType =
   | "service_account"
   | "basic";
 
+/** Typed field descriptor for integration payload shapes */
+export type PayloadFieldType = "string" | "number" | "boolean" | "object" | "array";
+
+export type PayloadShape = Record<string, PayloadFieldType>;
+
 export interface IntegrationTrigger {
   id: string;
   name: string;
   description: string;
   payloadSchemaId: string;
+  inputSchema: PayloadShape;
+  outputSchema: PayloadShape;
 }
 
 export interface IntegrationAction {
@@ -17,6 +24,8 @@ export interface IntegrationAction {
   name: string;
   description: string;
   payloadSchemaId: string;
+  inputSchema: PayloadShape;
+  outputSchema: PayloadShape;
 }
 
 export interface IntegrationDefinition {
@@ -33,4 +42,14 @@ export interface IntegrationConnection {
   integrationId: string;
   enabled: boolean;
   configuredAt: string | null;
+}
+
+export interface IntegrationExecutionResult {
+  success: boolean;
+  simulated: true;
+  timestamp: string;
+  integrationId: string;
+  operationId: string;
+  operationKind: "trigger" | "action";
+  [key: string]: unknown;
 }

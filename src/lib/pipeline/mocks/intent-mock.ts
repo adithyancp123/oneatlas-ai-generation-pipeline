@@ -1,16 +1,9 @@
 import type { AppIntent } from "@/types/domain";
+import { enrichIntentWithPromptInsights } from "@/lib/pipeline/prompt-insights";
 import { analyzePrompt } from "@/lib/pipeline/mocks/prompt-analysis";
 
 export function buildMockIntent(prompt: string): AppIntent {
   const analysis = analyzePrompt(prompt);
-
-  const assumptions: string[] = analysis.isVague
-    ? [
-        "Assumed multi-tenant SaaS deployment",
-        "Assumed email/password authentication",
-        "Assumed REST API backend",
-      ]
-    : [];
 
   const baseEntities =
     analysis.appType === "crm"
@@ -37,14 +30,7 @@ export function buildMockIntent(prompt: string): AppIntent {
         ? ["Product catalog", "Shopping cart", "Checkout", "Order history"]
         : ["User management", "Core workflows", "Dashboard", "Settings"];
 
-  const integrationsRequested: string[] = [];
-  if (/\bslack\b/i.test(prompt)) integrationsRequested.push("slack");
-  if (/\bstripe\b|payment/i.test(prompt)) integrationsRequested.push("stripe");
-  if (/\bemail|gmail\b/i.test(prompt)) integrationsRequested.push("gmail");
-  if (/\bjira\b/i.test(prompt)) integrationsRequested.push("jira");
-  if (/\bwhatsapp|twilio\b/i.test(prompt)) integrationsRequested.push("whatsapp-twilio");
-
-  return {
+  const baseIntent: AppIntent = {
     appName: analysis.appName,
     appType: analysis.appType,
     summary: prompt.slice(0, 500) || "Application generated from user prompt",
@@ -52,9 +38,12 @@ export function buildMockIntent(prompt: string): AppIntent {
     actors: ["Admin", "User"],
     constraints: analysis.isVague ? ["MVP scope", "Cloud-hosted"] : [],
     entities: baseEntities,
-    integrationsRequested,
-    assumptions,
+    integrationsRequested: [],
+    assumptions: [],
+    warnings: [],
     features,
     clarificationRequired: false,
   };
+
+  return enrichIntentWithPromptInsights(prompt, baseIntent);
 }

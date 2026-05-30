@@ -25,6 +25,8 @@ export const repairStage: PipelineStage<RepairStageInput, AppSpec> = {
       draftSpec: input.draftSpec,
       validationErrors: input.validationErrors,
       existingLog: null,
+      repairAttempt: 1,
+      sourceStageId: "appSpecGeneration",
     });
 
     void context;

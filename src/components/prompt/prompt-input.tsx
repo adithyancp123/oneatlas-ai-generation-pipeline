@@ -14,15 +14,16 @@ export function PromptInput({ className, disabled }: PromptInputProps) {
   const atLimit = prompt.length >= MAX_PROMPT_LENGTH;
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("space-y-2", className)}>
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value.slice(0, MAX_PROMPT_LENGTH))}
         disabled={disabled ?? isGenerating}
+        aria-label="Application description prompt"
         placeholder="Example: CRM for real estate with Slack notifications and Stripe billing"
-        rows={6}
+        rows={5}
         className={cn(
-          "input-base min-h-[148px] resize-y",
+          "input-base min-h-[120px] resize-y py-2.5",
           atLimit && "border-amber-500/45 focus:border-amber-500/45 focus:ring-amber-500/15",
         )}
       />
