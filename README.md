@@ -1,5 +1,8 @@
 # AppSpec Pipeline
 
+**Live demo:** https://oneatlas-ai-generation-pipeline.vercel.app  
+**GitHub:** https://github.com/adithyancp123/oneatlas-ai-generation-pipeline
+
 A multi-stage AI pipeline that turns a plain-English app description into a
 validated, machine-readable AppSpec — entities, schema, API endpoints, auth
 rules, workflow stubs, and integration hooks.
@@ -122,6 +125,21 @@ as a universal fallback on 429 or 5xx.
 
 ---
 
+## API endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| POST | /api/generate | Submit a prompt, returns jobId |
+| GET | /api/generate/:jobId | Job status, AppSpec, cost, repair log |
+| GET | /api/generate/:jobId/stream | SSE stream — stage_start, stage_complete, stage_failed, generation_complete |
+| POST | /api/generate/:jobId/repair | Manually trigger repair on a stage |
+| GET | /api/integrations | Full integration registry |
+
+SSE stream stays open until job resolves. On reconnect, all prior events
+replay from the job store.
+
+---
+
 ## Integrations
 
 Five integrations fully implemented with registry, trigger descriptors,
@@ -145,18 +163,17 @@ HTTP calls not implemented.
 ## Evaluation
 
 Ran the full suite of 12 prompts (7 standard + 5 edge cases).
-Results are in `evaluation-log.json` at the project root.
+Results are in [`evaluation-log.json`](./evaluation-log.json) at the
+project root. Summary in [`evaluation-summary.md`](./evaluation-summary.md).
 
 **12/12 succeeded. Average latency: 3262ms. Average cost: $0.0089.**
 
 Edge cases handled:
-- "An app." — generic SaaS scaffold, assumptions documented, no crash
-- "Notion for doctors" — ambiguous, assumptions applied, custom type
+- `"An app."` — generic SaaS scaffold, assumptions documented, no crash
+- `"Notion for doctors"` — ambiguous, assumptions applied, custom type
 - Overscoped platform — MVP-first, scope cuts documented
 - Conflicting domains — dominant domain selected, decision logged
-- "Make it smart" — vague modifier treated as assumption
-
-Summary in `evaluation-summary.md`.
+- `"Make it smart"` — vague modifier treated as assumption
 
 ---
 
