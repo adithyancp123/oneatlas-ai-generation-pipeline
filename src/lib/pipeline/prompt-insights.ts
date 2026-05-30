@@ -97,6 +97,7 @@ const INTEGRATION_PROMPT_DETECTORS: { id: string; pattern: RegExp }[] = [
     id: entry.id,
     pattern: new RegExp(`\\b${entry.id.replace(/-/g, "[-_]?")}\\b`, "i"),
   })),
+  { id: "whatsapp-twilio", pattern: /\bwhatsapp\b/i },
   { id: "gmail", pattern: /\b(email|gmail)\b/i },
   { id: "stripe", pattern: /\b(stripe|payments?)\b/i },
   ...UNSUPPORTED_INTEGRATIONS.map((entry) => ({ id: entry.id, pattern: entry.pattern })),

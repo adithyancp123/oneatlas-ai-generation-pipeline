@@ -1,3 +1,7 @@
+import {
+  buildDefaultWorkflowStub,
+  pickPrimaryEntity,
+} from "@/lib/pipeline/appspec/workflow-fallback";
 import type {
   AppIntent,
   AppSpec,
@@ -7,7 +11,11 @@ import type {
   PageSpec,
 } from "@/types/domain";
 
-export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): AppSpec {
+export function buildMockAppSpec(
+  intent: AppIntent,
+  dataSchema: DataSchema,
+  userPrompt = "",
+): AppSpec {
   const pages: PageSpec[] = [
     {
       id: "page-dashboard",
@@ -86,27 +94,14 @@ export function buildMockAppSpec(intent: AppIntent, dataSchema: DataSchema): App
     { entity: entity.name, role: "user", actions: ["read", "write"] },
   ]);
 
+  const primaryEntity = pickPrimaryEntity(intent, dataSchema, userPrompt);
   const workflows =
     integrations.length > 0
-      ? [
-          {
-            id: "wf-primary-integration",
-            name: "Primary Integration Workflow",
-            steps: integrations.map((hook) => `${hook.integrationId}:${hook.action}`),
-            trigger: integrations[0]?.trigger ?? "message.posted",
-            triggerMeta: {
-              ...(dataSchema.entities[0]?.name
-                ? { entity: dataSchema.entities[0].name }
-                : {}),
-              ...(integrations[0]?.trigger ? { event: integrations[0].trigger } : {}),
-            },
-            stepMeta: integrations.map((hook) => ({
-              integrationId: hook.integrationId,
-              actionId: hook.action,
-              payloadMapping: { target: hook.integrationId },
-            })),
-          },
-        ]
+      ? intent.integrationsRequested
+          .filter((id) => integrationDefaults[id])
+          .map((integrationId) =>
+            buildDefaultWorkflowStub(integrationId, primaryEntity, dataSchema, userPrompt),
+          )
       : [];
 
   return {

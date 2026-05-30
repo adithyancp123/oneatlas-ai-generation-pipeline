@@ -1,4 +1,8 @@
 import { aiGateway } from "@/lib/ai/gateway";
+import {
+  buildAppSpecGenerationPrompt,
+  ensureWorkflowStubs,
+} from "@/lib/pipeline/appspec/workflow-fallback";
 import { buildMockAppSpec } from "@/lib/pipeline/mocks";
 import { stageProviderExecutionFromGateway } from "@/lib/pipeline/stages/stage-execution";
 import { appSpecSchema } from "@/lib/pipeline/validators";
@@ -16,15 +20,19 @@ export const appSpecGenerationStage: PipelineStage<AppSpecGenerationInput, AppSp
   id: "appSpecGeneration",
   async execute(context, input): Promise<PipelineStageResult<AppSpec>> {
     const start = Date.now();
-    const prompt = `${context.prompt}\n\nSchema:\n${JSON.stringify(input.dataSchema)}`;
+    const prompt = buildAppSpecGenerationPrompt(
+      context.prompt,
+      input.intent,
+      input.dataSchema,
+    );
 
     const gatewayResponse = await aiGateway.generateForStage(
       { stageId: "appSpecGeneration", prompt, metadata: { jobId: context.jobId } },
       appSpecSchema,
     );
 
-    const output: AppSpec = gatewayResponse.mock
-      ? buildMockAppSpec(input.intent, input.dataSchema)
+    let output: AppSpec = gatewayResponse.mock
+      ? buildMockAppSpec(input.intent, input.dataSchema, context.prompt)
       : ({
           ...(gatewayResponse.data as AppSpec),
           intent: {
@@ -32,6 +40,17 @@ export const appSpecGenerationStage: PipelineStage<AppSpecGenerationInput, AppSp
             warnings: (gatewayResponse.data as AppSpec).intent.warnings ?? [],
           },
         } as AppSpec);
+
+    output = {
+      ...output,
+      intent: {
+        ...input.intent,
+        ...output.intent,
+        integrationsRequested: input.intent.integrationsRequested,
+      },
+    };
+
+    output = ensureWorkflowStubs(output, context.prompt);
 
     const validation = validateAppSpecOutput(output, {
       canonicalDataSchema: input.dataSchema,

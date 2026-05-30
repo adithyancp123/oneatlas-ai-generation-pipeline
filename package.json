@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "evaluate": "npx tsx evaluation/run.ts",
     "test:adversarial": "npx tsx evaluation/adversarial-validation.ts",
-    "test:cross-layer": "npx tsx evaluation/cross-layer-validation.ts"
+    "test:cross-layer": "npx tsx evaluation/cross-layer-validation.ts",
+    "test:workflow-stubs": "npx tsx scripts/test-workflow-stubs.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
