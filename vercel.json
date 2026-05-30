@@ -1,12 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "fluid": true,
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "regions": ["sin1"],
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 60
-    }
-  }
+  "regions": ["sin1"]
 }
