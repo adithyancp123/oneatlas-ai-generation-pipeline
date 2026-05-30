@@ -2,7 +2,10 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { DEFAULT_SDK_TIMEOUT_MS, type SDKCallOptions, type SDKCallResult } from "@/lib/ai/providers/sdk-types";
 import { mapSdkError } from "@/lib/ai/providers/sdk-errors";
 
-export async function callGeminiSDK(options: SDKCallOptions): Promise<SDKCallResult> {
+export async function callGeminiSDK(
+  options: SDKCallOptions,
+  providerId: "gemini" | "google-ai" = "gemini",
+): Promise<SDKCallResult> {
   try {
     const genAI = new GoogleGenerativeAI(options.apiKey);
     const model = genAI.getGenerativeModel({
@@ -39,6 +42,6 @@ export async function callGeminiSDK(options: SDKCallOptions): Promise<SDKCallRes
       },
     };
   } catch (error) {
-    throw mapSdkError(error, "gemini");
+    throw mapSdkError(error, providerId);
   }
 }

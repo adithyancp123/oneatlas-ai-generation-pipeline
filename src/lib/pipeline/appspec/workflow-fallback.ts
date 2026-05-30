@@ -1,50 +1,125 @@
 import { getIntegrationAction, getIntegrationById } from "@/lib/integrations/registry/definitions";
 import type { AppIntent, AppSpec, DataSchema, IntegrationHook, WorkflowStub } from "@/types/domain";
 
-/** Prefer Deal for CRM / deal-close prompts; otherwise first schema entity. */
-export function pickPrimaryEntity(
-  intent: AppIntent,
+const MESSAGING_STATUS_ENTITIES = ["Task", "Deal", "Order", "Leave", "Ticket"] as const;
+const STRIPE_ENTITIES = ["Order", "Payment", "Subscription"] as const;
+const EMAIL_ENTITIES = ["Order", "User", "Employee"] as const;
+const JIRA_ENTITIES = ["Task", "Issue", "Bug"] as const;
+
+const STATUS_CHANGED_ENTITIES = new Set<string>(["Task", "Deal", "Order", "Leave", "Ticket", "Issue", "Bug"]);
+const CREATED_EVENT_ENTITIES = new Set<string>(["User", "Employee", "Contact", "Payment", "Subscription"]);
+
+function schemaEntityNames(dataSchema: DataSchema): string[] {
+  return dataSchema.entities.map((e) => e.name);
+}
+
+function pickFirstInSchema(candidates: readonly string[], names: string[]): string | undefined {
+  for (const name of candidates) {
+    if (names.includes(name)) return name;
+  }
+  return undefined;
+}
+
+/**
+ * Pick the workflow trigger entity for an integration from the generated DataSchema.
+ */
+export function pickWorkflowTriggerEntity(
+  integrationId: string,
   dataSchema: DataSchema,
   userPrompt: string,
 ): string {
-  const names = dataSchema.entities.map((e) => e.name);
-  if (/deal/i.test(userPrompt) && names.includes("Deal")) return "Deal";
-  if (intent.appType === "crm" && names.includes("Deal")) return "Deal";
-  return names[0] ?? "Resource";
+  const names = schemaEntityNames(dataSchema);
+  if (names.length === 0) return "Resource";
+
+  let candidates: readonly string[] | undefined;
+
+  switch (integrationId) {
+    case "slack":
+    case "whatsapp-twilio":
+      candidates = MESSAGING_STATUS_ENTITIES;
+      break;
+    case "stripe":
+      candidates = STRIPE_ENTITIES;
+      break;
+    case "gmail":
+    case "google-workspace":
+      candidates = EMAIL_ENTITIES;
+      break;
+    case "jira":
+      candidates = JIRA_ENTITIES;
+      break;
+    default:
+      return names[0]!;
+  }
+
+  const matched = pickFirstInSchema(candidates, names);
+  if (matched) return matched;
+
+  if (
+    (integrationId === "whatsapp-twilio" || integrationId === "slack") &&
+    /deal.*clos|clos.*deal|deal closes/i.test(userPrompt) &&
+    names.includes("Deal")
+  ) {
+    return "Deal";
+  }
+
+  return names[0]!;
+}
+
+/** Map entity name to triggerMeta.event for workflow stubs. */
+export function pickWorkflowTriggerEvent(entityName: string): string {
+  if (STATUS_CHANGED_ENTITIES.has(entityName)) return "status_changed";
+  if (CREATED_EVENT_ENTITIES.has(entityName)) return "created";
+  return "created";
+}
+
+/** @deprecated Use pickWorkflowTriggerEntity(integrationId, dataSchema, userPrompt) */
+export function pickPrimaryEntity(
+  _intent: AppIntent,
+  dataSchema: DataSchema,
+  userPrompt: string,
+): string {
+  return pickWorkflowTriggerEntity("slack", dataSchema, userPrompt);
 }
 
 function buildPayloadMapping(
   integrationId: string,
   actionId: string,
-  primaryEntity: string,
+  triggerEntity: string,
   dataSchema: DataSchema,
   userPrompt: string,
 ): Record<string, string> {
-  const entity = dataSchema.entities.find((e) => e.name === primaryEntity);
+  const entity = dataSchema.entities.find((e) => e.name === triggerEntity);
   const fieldNames = entity?.fields.map((f) => f.name) ?? [];
   const actionDef = getIntegrationAction(integrationId, actionId);
   const mapping: Record<string, string> = {};
 
-  if (/deal.*clos|clos.*deal|deal closes/i.test(userPrompt)) {
+  if (
+    triggerEntity === "Deal" &&
+    /deal.*clos|clos.*deal|deal closes/i.test(userPrompt)
+  ) {
     mapping.condition = "status === 'closed'";
   }
 
   if (actionDef) {
     for (const key of Object.keys(actionDef.inputSchema)) {
       if (key === "body" || key === "message") {
-        mapping[key] = `Deal closed: {{${primaryEntity}.name}}`;
+        mapping[key] =
+          triggerEntity === "Deal"
+            ? `Deal closed: {{${triggerEntity}.name}}`
+            : `${triggerEntity} update: {{${triggerEntity}.name}}`;
       } else if (key === "to") {
-        mapping[key] = `{{${primaryEntity}.contact_phone}}`;
+        mapping[key] = `{{${triggerEntity}.contact_phone}}`;
       } else if (fieldNames.includes(key)) {
-        mapping[key] = `{{${primaryEntity}.${key}}}`;
+        mapping[key] = `{{${triggerEntity}.${key}}}`;
       } else {
-        mapping[key] = `{{${primaryEntity}.id}}`;
+        mapping[key] = `{{${triggerEntity}.id}}`;
       }
     }
   }
 
   if (Object.keys(mapping).length === 0) {
-    mapping.target = primaryEntity;
+    mapping.target = triggerEntity;
   }
 
   return mapping;
@@ -52,22 +127,21 @@ function buildPayloadMapping(
 
 export function buildDefaultWorkflowStub(
   integrationId: string,
-  primaryEntity: string,
   dataSchema: DataSchema,
   userPrompt: string,
 ): WorkflowStub {
   const def = getIntegrationById(integrationId);
   const registryTrigger = def?.triggers[0]?.id ?? "message.received";
   const actionId = def?.actions[0]?.id ?? "message.send";
-  const dealClose = /deal.*clos|clos.*deal|deal closes/i.test(userPrompt);
-  const triggerMetaEvent = dealClose ? "status_changed" : registryTrigger;
+  const triggerEntity = pickWorkflowTriggerEntity(integrationId, dataSchema, userPrompt);
+  const triggerMetaEvent = pickWorkflowTriggerEvent(triggerEntity);
 
   return {
-    id: `wf-${integrationId}-${primaryEntity.toLowerCase()}`,
-    name: `${def?.displayName ?? integrationId} — ${primaryEntity} notification`,
+    id: `wf-${integrationId}-${triggerEntity.toLowerCase()}`,
+    name: `${def?.displayName ?? integrationId} — ${triggerEntity} notification`,
     trigger: registryTrigger,
     triggerMeta: {
-      entity: primaryEntity,
+      entity: triggerEntity,
       event: triggerMetaEvent,
     },
     steps: [`${integrationId}:${actionId}`],
@@ -78,7 +152,7 @@ export function buildDefaultWorkflowStub(
         payloadMapping: buildPayloadMapping(
           integrationId,
           actionId,
-          primaryEntity,
+          triggerEntity,
           dataSchema,
           userPrompt,
         ),
@@ -119,9 +193,8 @@ export function ensureWorkflowStubs(spec: AppSpec, userPrompt: string): AppSpec 
     return spec;
   }
 
-  const primaryEntity = pickPrimaryEntity(spec.intent, spec.dataSchema, userPrompt);
   const workflows = requested.map((integrationId) =>
-    buildDefaultWorkflowStub(integrationId, primaryEntity, spec.dataSchema, userPrompt),
+    buildDefaultWorkflowStub(integrationId, spec.dataSchema, userPrompt),
   );
   const integrations = ensureIntegrationHooks(spec, requested);
 
@@ -168,6 +241,7 @@ export function buildAppSpecGenerationPrompt(
       ? `- Create at least one workflow stub in workflows[] for EACH integrationsRequested id (${integrationList}).`
       : "- workflows[] may be empty when no integrations are requested.",
     "- Each workflow must include: name, trigger (registry trigger id), triggerMeta.entity, triggerMeta.event, steps[], stepMeta[] with integrationId, actionId, payloadMapping.",
+    "- Pick triggerMeta.entity from the data schema (e.g. Task for task apps, Deal for deal-close CRM, not a generic Contact unless that is the only entity).",
     "- For deal-close / notification prompts, use triggerMeta.event status_changed and payloadMapping.condition status === 'closed' when appropriate.",
   ].join("\n");
 }

@@ -21,6 +21,7 @@ const envSchema = z.object({
   ANTHROPIC_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
   GROQ_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
   GEMINI_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
+  GOOGLE_AI_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
   MISTRAL_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
   OPENROUTER_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
   DEEPSEEK_DEFAULT_MODEL: z.preprocess(emptyToUndefined, z.string().optional()),
@@ -105,11 +106,18 @@ export function hasApiKey(envKey: string): boolean {
   return getApiKeyValue(envKey) !== undefined;
 }
 
-/** Gemini accepts GEMINI_API_KEY or GOOGLE_AI_API_KEY (either must be non-placeholder). */
 export function getGeminiApiKeyValue(): string | undefined {
-  return getApiKeyValue("GEMINI_API_KEY") ?? getApiKeyValue("GOOGLE_AI_API_KEY");
+  return getApiKeyValue("GEMINI_API_KEY");
 }
 
 export function hasGeminiApiKey(): boolean {
   return getGeminiApiKeyValue() !== undefined;
+}
+
+export function getGoogleAiApiKeyValue(): string | undefined {
+  return getApiKeyValue("GOOGLE_AI_API_KEY");
+}
+
+export function hasGoogleAiApiKey(): boolean {
+  return getGoogleAiApiKeyValue() !== undefined;
 }

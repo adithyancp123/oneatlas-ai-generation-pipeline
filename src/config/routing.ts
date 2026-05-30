@@ -28,7 +28,7 @@ export interface StageRoutingEntry {
  *
  * Primary providers (internship compliance):
  * - intentExtraction → Groq (fast/cheap)
- * - schemaGeneration → Gemini (structured generation)
+ * - schemaGeneration → Gemini (primary), Google AI (fallback)
  * - appSpecGeneration → OpenAI (quality)
  * - repair → OpenAI with Groq fallback
  */
@@ -45,7 +45,7 @@ export const STAGE_ROUTING_CONFIG: readonly StageRoutingEntry[] = [
   {
     stageId: "schemaGeneration",
     primary: { provider: "gemini", modelEnvKey: "GEMINI_DEFAULT_MODEL" },
-    fallback: { provider: "openai", modelEnvKey: "OPENAI_DEFAULT_MODEL" },
+    fallback: { provider: "google-ai", modelEnvKey: "GOOGLE_AI_DEFAULT_MODEL" },
     strategy: "cost-optimized",
     costThresholdUsd: 0.1,
     latencyThresholdMs: 15_000,

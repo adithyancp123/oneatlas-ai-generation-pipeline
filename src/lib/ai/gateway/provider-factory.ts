@@ -7,6 +7,7 @@ import {
   openaiAdapter,
   openrouterAdapter,
 } from "@/lib/ai/providers";
+import { googleAiAdapter } from "@/lib/gateway/adapters/google-ai";
 import type { ProviderAdapter, ProviderId } from "@/lib/ai/gateway/types";
 import { ProviderRequestError } from "@/lib/ai/gateway/types";
 
@@ -15,6 +16,7 @@ const adapters: Record<ProviderId, ProviderAdapter> = {
   anthropic: anthropicAdapter,
   groq: groqAdapter,
   gemini: geminiAdapter,
+  "google-ai": googleAiAdapter,
   deepseek: deepseekAdapter,
   mistral: mistralAdapter,
   openrouter: openrouterAdapter,

@@ -1,6 +1,6 @@
 import { PROVIDER_DEFINITIONS } from "@/config/providers";
 import { STAGE_ROUTING_CONFIG } from "@/config/routing";
-import { getApiKeyValue, getEnvValue, hasGeminiApiKey } from "@/config/env";
+import { getApiKeyValue, getEnvValue } from "@/config/env";
 import { getProviderAdapter } from "@/lib/ai/gateway/provider-factory";
 import type { ProviderCapabilities, ProviderId } from "@/lib/ai/gateway/types";
 import type { PipelineStageId } from "@/types/pipeline";
@@ -52,13 +52,6 @@ function providerDisplayName(id: string): string {
   return def?.displayName ?? id;
 }
 
-function isProviderConfigured(id: ProviderId): boolean {
-  if (id === "gemini") return hasGeminiApiKey();
-  const def = PROVIDER_DEFINITIONS.find((p) => p.id === id);
-  if (!def) return false;
-  return def.apiKeyEnvKeys.some((key) => getApiKeyValue(key) !== undefined);
-}
-
 function resolveConfiguredModel(def: (typeof PROVIDER_DEFINITIONS)[number]): string {
   const fromEnv = getEnvValue(def.defaultModelEnv);
   return fromEnv && fromEnv.length > 0 ? fromEnv : def.defaultModel;
@@ -77,7 +70,7 @@ function buildRoutingRoles(providerId: ProviderId): string[] {
     }
   }
 
-  if (providerId === "openrouter" && isProviderConfigured("openrouter")) {
+  if (providerId === "openrouter" && getProviderAdapter("openrouter").isConfigured()) {
     roles.push("Universal gateway fallback");
   }
 

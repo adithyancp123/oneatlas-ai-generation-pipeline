@@ -1,13 +1,7 @@
+import { APP_TYPE_VALUES } from "@/lib/pipeline/intent/app-type-detection";
 import { z } from "zod";
 
-export const appTypeSchema = z.enum([
-  "crm",
-  "ecommerce",
-  "saas",
-  "internal_tool",
-  "marketplace",
-  "other",
-]);
+export const appTypeSchema = z.enum(APP_TYPE_VALUES);
 
 export const extractedEntitySchema = z.object({
   name: z.string().min(1),

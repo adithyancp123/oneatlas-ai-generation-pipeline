@@ -30,11 +30,13 @@ interface DomainScore {
 
 const APP_TYPE_LABELS: Record<AppType, string> = {
   crm: "CRM",
+  project_management: "project management",
   ecommerce: "ecommerce",
-  saas: "SaaS",
-  internal_tool: "internal tool",
-  marketplace: "marketplace",
-  other: "general application",
+  hr_tool: "HR tool",
+  inventory: "inventory",
+  content_platform: "content platform",
+  analytics: "analytics",
+  custom: "custom application",
 };
 
 const DOMAIN_DISPLAY: Record<ScoredDomainId, string> = {

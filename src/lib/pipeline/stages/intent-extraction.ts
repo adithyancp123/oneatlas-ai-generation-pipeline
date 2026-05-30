@@ -1,4 +1,8 @@
 import { aiGateway } from "@/lib/ai/gateway";
+import {
+  buildIntentExtractionPrompt,
+  correctIntentAppType,
+} from "@/lib/pipeline/intent/app-type-detection";
 import { buildMockIntent } from "@/lib/pipeline/mocks";
 import { stageProviderExecutionFromGateway } from "@/lib/pipeline/stages/stage-execution";
 import { enrichIntentWithPromptInsights } from "@/lib/pipeline/prompt-insights";
@@ -13,17 +17,26 @@ export const intentExtractionStage: PipelineStage<string, AppIntent> = {
   async execute(context, prompt): Promise<PipelineStageResult<AppIntent>> {
     const start = Date.now();
 
+    const extractionPrompt = buildIntentExtractionPrompt(prompt);
+
     const gatewayResponse = await aiGateway.generateForStage(
-      { stageId: "intentExtraction", prompt, metadata: { jobId: context.jobId } },
+      {
+        stageId: "intentExtraction",
+        prompt: extractionPrompt,
+        metadata: { jobId: context.jobId },
+      },
       appIntentSchema,
     );
 
-    const output: AppIntent = gatewayResponse.mock
-      ? buildMockIntent(prompt)
-      : enrichIntentWithPromptInsights(prompt, {
-          ...(gatewayResponse.data as AppIntent),
-          warnings: (gatewayResponse.data as AppIntent).warnings ?? [],
-        });
+    const output: AppIntent = correctIntentAppType(
+      prompt,
+      gatewayResponse.mock
+        ? buildMockIntent(prompt)
+        : enrichIntentWithPromptInsights(prompt, {
+            ...(gatewayResponse.data as AppIntent),
+            warnings: (gatewayResponse.data as AppIntent).warnings ?? [],
+          }),
+    );
 
     const validation = validateIntentOutput(output);
 

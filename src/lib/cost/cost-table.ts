@@ -9,6 +9,7 @@ export const COST_TABLE: Record<string, ModelPricing> = {
   "anthropic:default": { inputPer1M: 3, outputPer1M: 15 },
   "groq:default": { inputPer1M: 0.5, outputPer1M: 1 },
   "gemini:default": { inputPer1M: 1.25, outputPer1M: 5 },
+  "google-ai:default": { inputPer1M: 1.25, outputPer1M: 5 },
   "deepseek:default": { inputPer1M: 0.14, outputPer1M: 0.28 },
   "mistral:default": { inputPer1M: 2, outputPer1M: 6 },
   "openrouter:default": { inputPer1M: 2, outputPer1M: 8 },

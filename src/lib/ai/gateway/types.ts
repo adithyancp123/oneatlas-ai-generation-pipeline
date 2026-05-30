@@ -7,6 +7,7 @@ export type ProviderId =
   | "anthropic"
   | "groq"
   | "gemini"
+  | "google-ai"
   | "deepseek"
   | "mistral"
   | "openrouter";

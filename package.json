@@ -11,12 +11,13 @@
     "evaluate": "npx tsx evaluation/run.ts",
     "test:adversarial": "npx tsx evaluation/adversarial-validation.ts",
     "test:cross-layer": "npx tsx evaluation/cross-layer-validation.ts",
-    "test:workflow-stubs": "npx tsx scripts/test-workflow-stubs.ts"
+    "test:workflow-stubs": "npx tsx scripts/test-workflow-stubs.ts",
+    "test:app-type": "npx tsx scripts/test-app-type.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@google/genai": "^1.0.0",
-    "@google/generative-ai": "^0.24.0",
+    "@google/generative-ai": "^0.24.1",
     "@mistralai/mistralai": "^1.5.0",
     "clsx": "^2.1.1",
     "eventsource-parser": "^3.0.0",

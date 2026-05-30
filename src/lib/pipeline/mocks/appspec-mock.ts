@@ -1,7 +1,4 @@
-import {
-  buildDefaultWorkflowStub,
-  pickPrimaryEntity,
-} from "@/lib/pipeline/appspec/workflow-fallback";
+import { buildDefaultWorkflowStub } from "@/lib/pipeline/appspec/workflow-fallback";
 import type {
   AppIntent,
   AppSpec,
@@ -94,13 +91,12 @@ export function buildMockAppSpec(
     { entity: entity.name, role: "user", actions: ["read", "write"] },
   ]);
 
-  const primaryEntity = pickPrimaryEntity(intent, dataSchema, userPrompt);
   const workflows =
     integrations.length > 0
       ? intent.integrationsRequested
           .filter((id) => integrationDefaults[id])
           .map((integrationId) =>
-            buildDefaultWorkflowStub(integrationId, primaryEntity, dataSchema, userPrompt),
+            buildDefaultWorkflowStub(integrationId, dataSchema, userPrompt),
           )
       : [];
 

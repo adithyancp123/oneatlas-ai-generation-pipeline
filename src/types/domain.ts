@@ -1,12 +1,8 @@
 /** Core domain types — mirrored by Zod schemas in lib/pipeline/validators */
 
-export type AppType =
-  | "crm"
-  | "ecommerce"
-  | "saas"
-  | "internal_tool"
-  | "marketplace"
-  | "other";
+import type { AppType } from "@/lib/pipeline/intent/app-type-detection";
+
+export type { AppType };
 
 export interface ExtractedEntity {
   name: string;

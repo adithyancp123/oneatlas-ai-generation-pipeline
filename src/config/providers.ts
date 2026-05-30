@@ -3,7 +3,7 @@ import type { ProviderCapabilities, ProviderId } from "@/lib/ai/gateway/types";
 export interface ProviderDefinition {
   id: ProviderId;
   displayName: string;
-  /** Primary env var for API key (Gemini also accepts GOOGLE_AI_API_KEY) */
+  /** Primary env var(s) for API key */
   apiKeyEnvKeys: readonly string[];
   defaultModelEnv: string;
   /** Default model when env override is unset (adapter fallback) */
@@ -11,7 +11,7 @@ export interface ProviderDefinition {
   capabilities: ProviderCapabilities;
 }
 
-/** Static registry — all 8 assignment API key slots map to these 7 gateway adapters. */
+/** Static registry — all 8 assignment API key slots map to these 8 gateway adapters. */
 export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
   {
     id: "openai",
@@ -64,8 +64,24 @@ export const PROVIDER_DEFINITIONS: readonly ProviderDefinition[] = [
   {
     id: "gemini",
     displayName: "Google Gemini",
-    apiKeyEnvKeys: ["GEMINI_API_KEY", "GOOGLE_AI_API_KEY"],
+    apiKeyEnvKeys: ["GEMINI_API_KEY"],
     defaultModelEnv: "GEMINI_DEFAULT_MODEL",
+    defaultModel: "gemini-1.5-flash",
+    capabilities: {
+      structuredOutput: true,
+      supportsJson: true,
+      fast: true,
+      cheap: true,
+      reasoning: false,
+      maxTokens: 1_000_000,
+      supportsStreaming: true,
+    },
+  },
+  {
+    id: "google-ai",
+    displayName: "Google AI",
+    apiKeyEnvKeys: ["GOOGLE_AI_API_KEY"],
+    defaultModelEnv: "GOOGLE_AI_DEFAULT_MODEL",
     defaultModel: "gemini-1.5-flash",
     capabilities: {
       structuredOutput: true,
