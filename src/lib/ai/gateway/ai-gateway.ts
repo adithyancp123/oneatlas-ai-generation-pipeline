@@ -10,11 +10,17 @@ import type {
 import { isRetryableProviderError, ProviderRequestError } from "@/lib/ai/gateway/types";
 import { applyRoutingExecution } from "@/lib/ai/provider-execution";
 import { resolveFallbackRoute, resolveRoute } from "@/lib/ai/routing/resolver";
+import {
+  buildStructuredSystemPrompt,
+  parseStructuredJson,
+} from "@/lib/ai/structured/parse-structured";
+import { extractJsonPayload } from "@/lib/ai/structured/json-utils";
 import { logger } from "@/lib/logging";
 import type { PipelineStageId } from "@/types/pipeline";
 import type { z } from "zod";
 
 const OPENROUTER_UNIVERSAL_FALLBACK: ProviderId = "openrouter";
+const LOG_RAW_PREVIEW_CHARS = 800;
 
 interface StageGenerateOptions {
   stageId: PipelineStageId;
@@ -32,24 +38,50 @@ export class AIGateway {
   async generateStructured<T>(
     input: AIGenerateStructuredInput<T>,
   ): Promise<AIGatewayResponse<T>> {
-    const textResult = await this.executeWithRouting(input);
+    const structuredInput: AIGenerateStructuredInput<T> = {
+      ...input,
+      prompt: `${buildStructuredSystemPrompt(input.stageId ?? "output")}\n\n${input.prompt}`,
+    };
+
+    const textResult = await this.executeWithRouting(structuredInput);
     if (textResult.mock) {
       return textResult as AIGatewayResponse<T>;
     }
 
-    try {
-      const parsed: unknown = JSON.parse(textResult.data);
-      const data = input.schema.parse(parsed);
-      return { ...textResult, data };
-    } catch (error) {
-      throw new ProviderRequestError(
-        "Structured output parse failed",
-        textResult.provider,
-        undefined,
-        false,
-        error,
-      );
+    const raw = textResult.data;
+    const extracted = extractJsonPayload(raw);
+    const parseResult = parseStructuredJson(raw, input.schema);
+
+    if (parseResult.success && parseResult.data !== undefined) {
+      logger.debug("Structured output parsed", {
+        ...(input.stageId !== undefined ? { stageId: input.stageId } : {}),
+        provider: textResult.provider,
+        model: textResult.model,
+        rawLength: raw.length,
+        extractedLength: extracted.length,
+        usedExtraction: extracted !== raw.trim(),
+      });
+      return { ...textResult, data: parseResult.data };
     }
+
+    const cause = parseResult.error ?? "Unable to parse JSON";
+    logger.warn("Structured output parse failed", {
+      ...(input.stageId !== undefined ? { stageId: input.stageId } : {}),
+      provider: textResult.provider,
+      model: textResult.model,
+      parseError: cause,
+      rawPreview: raw.slice(0, LOG_RAW_PREVIEW_CHARS),
+      extractedPreview: extracted.slice(0, LOG_RAW_PREVIEW_CHARS),
+      ...(input.metadata?.jobId !== undefined ? { jobId: input.metadata.jobId } : {}),
+    });
+
+    throw new ProviderRequestError(
+      `Structured output parse failed: ${cause}`,
+      textResult.provider,
+      undefined,
+      false,
+      new Error(cause),
+    );
   }
 
   async generateForStage<T>(

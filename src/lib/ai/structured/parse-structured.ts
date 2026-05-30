@@ -1,5 +1,21 @@
 import { buildJsonCorrectionPrompt, extractJsonPayload, recoverTruncatedJson } from "@/lib/ai/structured/json-utils";
-import type { z } from "zod";
+import { z } from "zod";
+
+function formatParseError(error: unknown): string {
+  if (error instanceof z.ZodError) {
+    const issues = error.errors
+      .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "root"}: ${issue.message}`)
+      .join("; ");
+    return `Schema validation failed: ${issues}`;
+  }
+  if (error instanceof SyntaxError) {
+    return `Invalid JSON: ${error.message}`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Unknown parse error";
+}
 
 export interface ParseStructuredResult<T> {
   success: boolean;
@@ -18,20 +34,19 @@ export function parseStructuredJson<T>(
 
   const unique = [...new Set([text.trim(), ...candidates])];
 
+  let lastError: string | undefined;
+
   for (const candidate of unique) {
     try {
       const parsed: unknown = JSON.parse(candidate);
       const data = schema.parse(parsed);
       return { success: true, data, raw: candidate };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown parse error";
-      if (candidate === unique[unique.length - 1]) {
-        return { success: false, raw: text, error: message };
-      }
+      lastError = formatParseError(error);
     }
   }
 
-  return { success: false, raw: text, error: "Unable to parse JSON" };
+  return { success: false, raw: text, error: lastError ?? "Unable to parse JSON" };
 }
 
 export function buildStructuredSystemPrompt(schemaName: string): string {
